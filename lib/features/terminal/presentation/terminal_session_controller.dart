@@ -4,13 +4,15 @@ import 'dart:convert';
 import 'package:conduit/core/app_failure.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/terminal/domain/network_connectivity.dart';
+import 'package:conduit/features/terminal/domain/predictive_echo.dart';
+import 'package:conduit/features/terminal/domain/predictive_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/roaming_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_repository.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/terminal_string_sequence_filter.dart';
 import 'package:conduit/features/terminal/presentation/terminal_keyboard_controller.dart';
+import 'package:conduit_vt/conduit_vt.dart';
 import 'package:flutter/foundation.dart';
-import 'package:xterm/xterm.dart';
 
 enum TerminalConnectionStatus {
   idle,
@@ -36,6 +38,7 @@ class TerminalSessionController extends ChangeNotifier {
   final TerminalKeyboardController keyboard;
   final Terminal terminal;
   final _outputFilter = TerminalStringSequenceFilter();
+  final _predictiveEcho = PredictiveEcho();
 
   TerminalConnectionStatus _status = TerminalConnectionStatus.idle;
   SshTerminalSession? _session;
@@ -43,6 +46,7 @@ class TerminalSessionController extends ChangeNotifier {
   StreamSubscription<String>? _stderrSubscription;
   StreamSubscription<void>? _doneSubscription;
   StreamSubscription<void>? _connectivitySubscription;
+  StreamSubscription<int>? _echoAckSubscription;
   String _title = '';
   int _pixelWidth = 0;
   int _pixelHeight = 0;
@@ -56,6 +60,16 @@ class TerminalSessionController extends ChangeNotifier {
   TerminalConnectionStatus get status => _status;
   String get title => _title.isEmpty ? host.name : _title;
   bool get isConnected => _status == TerminalConnectionStatus.connected;
+
+  List<TerminalCellOverlay> get overlays => [
+    for (final prediction in _predictiveEcho.overlay)
+      TerminalCellOverlay(
+        row: prediction.row,
+        column: prediction.column,
+        text: prediction.character,
+        opacity: 0.62,
+      ),
+  ];
 
   bool get shouldConnect =>
       !_disconnecting &&
@@ -73,6 +87,7 @@ class TerminalSessionController extends ChangeNotifier {
 
     final generation = ++_connectionGeneration;
     _outputFilter.reset();
+    _predictiveEcho.reset();
     _status = TerminalConnectionStatus.connecting;
     terminal.write(
       'Connecting to ${host.username}@${host.host}:${host.port}...\r\n',
@@ -130,6 +145,16 @@ class TerminalSessionController extends ChangeNotifier {
           (_) => _rehome(),
         );
       }
+      if (session is PredictiveTerminalSession) {
+        final predictiveSession = session as PredictiveTerminalSession;
+        _predictiveEcho.updateSrtt(predictiveSession.smoothedRtt);
+        _echoAckSubscription = predictiveSession.echoAcks.listen((int ackNum) {
+          _predictiveEcho
+            ..updateSrtt(predictiveSession.smoothedRtt)
+            ..recordEchoAck(ackNum);
+          notifyListeners();
+        }, onError: _handleStreamError);
+      }
 
       _status = TerminalConnectionStatus.connected;
       notifyListeners();
@@ -161,10 +186,13 @@ class TerminalSessionController extends ChangeNotifier {
     await _stderrSubscription?.cancel();
     await _doneSubscription?.cancel();
     await _connectivitySubscription?.cancel();
+    await _echoAckSubscription?.cancel();
     _stdoutSubscription = null;
     _stderrSubscription = null;
     _doneSubscription = null;
     _connectivitySubscription = null;
+    _echoAckSubscription = null;
+    _predictiveEcho.reset();
 
     final session = _session;
     _session = null;
@@ -216,12 +244,39 @@ class TerminalSessionController extends ChangeNotifier {
       _resizeTimer = Timer(const Duration(milliseconds: 250), _flushResize);
     };
     terminal.onOutput = (data) {
-      final session = _session;
-      if (session == null) {
-        return;
-      }
-      unawaited(session.send(utf8.encode(data)).catchError(_handleStreamError));
+      _sendTerminalOutput(data);
     };
+  }
+
+  void _sendTerminalOutput(String data) {
+    final session = _session;
+    if (session == null) {
+      return;
+    }
+
+    final bytes = utf8.encode(data);
+    if (session is PredictiveTerminalSession) {
+      final predictiveSession = session as PredictiveTerminalSession;
+      try {
+        final inputNum = predictiveSession.sendWithInputState(bytes);
+        _predictiveEcho
+          ..updateSrtt(predictiveSession.smoothedRtt)
+          ..recordInput(
+            data,
+            inputNum: inputNum,
+            cursorRow: terminal.absoluteCursorRow,
+            cursorColumn: terminal.cursorColumn,
+            viewWidth: terminal.viewWidth,
+            altScreen: terminal.isUsingAltBuffer,
+          );
+        notifyListeners();
+      } catch (error, stackTrace) {
+        _handleStreamError(error, stackTrace);
+      }
+      return;
+    }
+
+    unawaited(session.send(bytes).catchError(_handleStreamError));
   }
 
   void _rehome() {
@@ -272,6 +327,7 @@ class TerminalSessionController extends ChangeNotifier {
     unawaited(_stderrSubscription?.cancel());
     unawaited(_doneSubscription?.cancel());
     unawaited(_connectivitySubscription?.cancel());
+    unawaited(_echoAckSubscription?.cancel());
     final session = _session;
     _session = null;
     if (session != null) {

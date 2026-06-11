@@ -5,6 +5,7 @@ import 'package:conduit/core/app_failure.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/terminal/data/ssh_client_factory.dart';
 import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
+import 'package:conduit/features/terminal/domain/predictive_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/roaming_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_repository.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_session.dart';
@@ -71,11 +72,21 @@ class MoshTerminalRepository implements SshTerminalRepository {
 }
 
 class MoshTerminalSession
-    implements SshTerminalSession, RoamingTerminalSession {
-  MoshTerminalSession(this._session);
+    implements
+        SshTerminalSession,
+        RoamingTerminalSession,
+        PredictiveTerminalSession {
+  MoshTerminalSession(this._session) {
+    _errorSubscription = _session.errors.listen((error) {
+      if (!_closed) {
+        _stderr.add(utf8.encode('$error\r\n'));
+      }
+    });
+  }
 
   final MoshSession _session;
   final _stderr = StreamController<List<int>>.broadcast();
+  StreamSubscription<Object>? _errorSubscription;
   bool _closed = false;
 
   @override
@@ -88,11 +99,22 @@ class MoshTerminalSession
   Future<void> get done => _session.done;
 
   @override
+  Stream<int> get echoAcks => _session.echoAcks;
+
+  @override
+  Duration? get smoothedRtt => _session.smoothedRtt;
+
+  @override
   Future<void> send(List<int> data) async {
+    sendWithInputState(data);
+  }
+
+  @override
+  int sendWithInputState(List<int> data) {
     if (_closed) {
       throw const AppFailure('The Mosh session is closed.');
     }
-    _session.send(data);
+    return _session.send(data);
   }
 
   @override
@@ -117,6 +139,7 @@ class MoshTerminalSession
       return;
     }
     _closed = true;
+    await _errorSubscription?.cancel();
     await _session.close();
     await _stderr.close();
   }

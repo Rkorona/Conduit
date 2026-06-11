@@ -13,7 +13,10 @@ dependencies:
   connectivity_plus: ^6.1.0
   cupertino_icons: ^1.0.8
   dartssh2: ^2.17.1
-  xterm: ^4.0.0
+  conduit_vt:
+    git:
+      url: https://github.com/gwitko/conduit_vt.git
+      ref: master
   dart_mosh: ^0.0.2
   flutter_secure_storage: ^10.3.1
   local_auth: ^3.0.1

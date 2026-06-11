@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:xterm/xterm.dart';
+import 'package:conduit_vt/conduit_vt.dart';
 
 class TerminalKeyboardController extends TerminalInputHandler
     with ChangeNotifier {

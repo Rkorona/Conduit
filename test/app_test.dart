@@ -20,6 +20,7 @@ import 'package:conduit/features/terminal/data/secure_host_key_verifier.dart';
 import 'package:conduit/features/terminal/domain/host_key_prompt.dart';
 import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
 import 'package:conduit/features/terminal/domain/network_connectivity.dart';
+import 'package:conduit/features/terminal/domain/predictive_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/roaming_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_repository.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_session.dart';
@@ -217,6 +218,35 @@ void main() {
 
       controller.dispose();
     });
+
+    test(
+      'paints predictive overlays until the mosh echo ack arrives',
+      () async {
+        final session = _PredictiveTerminalSession();
+        final controller = TerminalSessionController(
+          host: _buildHost('predict'),
+          repository: _ImmediateTerminalRepository(session),
+        );
+
+        await controller.connect();
+        controller.sendText('l');
+        controller.sendText('s');
+
+        expect(session.sent.map(String.fromCharCodes), ['l', 's']);
+        expect(controller.overlays.map((overlay) => overlay.text).join(), 'ls');
+        expect(controller.overlays.map((overlay) => overlay.column), [0, 1]);
+
+        session.ack(1);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.overlays.map((overlay) => overlay.text).join(), 's');
+
+        session.ack(2);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.overlays, isEmpty);
+
+        controller.dispose();
+      },
+    );
   });
 
   group('SavedHost.isValid', () {
@@ -911,6 +941,56 @@ class _RoamingTerminalSession
   @override
   Future<void> rehome() async {
     rehomeCount += 1;
+  }
+}
+
+class _PredictiveTerminalSession
+    implements SshTerminalSession, PredictiveTerminalSession {
+  final Completer<void> _done = Completer<void>();
+  final StreamController<int> _echoAcks = StreamController<int>.broadcast();
+  final List<List<int>> sent = <List<int>>[];
+  int _inputState = 0;
+
+  @override
+  Future<void> get done => _done.future;
+
+  @override
+  Stream<int> get echoAcks => _echoAcks.stream;
+
+  @override
+  Stream<List<int>> get stderr => const Stream.empty();
+
+  @override
+  Duration? get smoothedRtt => const Duration(milliseconds: 180);
+
+  @override
+  Stream<List<int>> get stdout => const Stream.empty();
+
+  void ack(int inputState) {
+    _echoAcks.add(inputState);
+  }
+
+  @override
+  Future<void> close() async {
+    if (!_done.isCompleted) {
+      _done.complete();
+    }
+    await _echoAcks.close();
+  }
+
+  @override
+  void resize(int columns, int rows, int pixelWidth, int pixelHeight) {}
+
+  @override
+  Future<void> send(List<int> data) async {
+    sendWithInputState(data);
+  }
+
+  @override
+  int sendWithInputState(List<int> data) {
+    sent.add(List<int>.of(data));
+    _inputState += 1;
+    return _inputState;
   }
 }
 

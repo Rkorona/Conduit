@@ -8,7 +8,7 @@ import 'package:conduit/features/terminal/presentation/terminal_session_controll
 import 'package:conduit/features/terminal/presentation/terminal_workspace_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:xterm/xterm.dart';
+import 'package:conduit_vt/conduit_vt.dart';
 
 class TerminalPage extends StatefulWidget {
   const TerminalPage({
@@ -222,6 +222,7 @@ class _TerminalSurfaceState extends State<_TerminalSurface> {
         keyboardType: TextInputType.visiblePassword,
         keyboardAppearance: Brightness.dark,
         theme: widget.palette.terminalThemeFor(widget.brightness),
+        overlays: widget.session.overlays,
         textStyle: TerminalStyle(
           fontFamily: widget.fontFamily,
           fontSize: widget.fontSize,

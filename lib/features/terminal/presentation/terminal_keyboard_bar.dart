@@ -4,7 +4,7 @@ import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/features/terminal/presentation/terminal_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:xterm/xterm.dart';
+import 'package:conduit_vt/conduit_vt.dart';
 
 class TerminalKeyboardBar extends StatelessWidget {
   const TerminalKeyboardBar({

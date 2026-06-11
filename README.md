@@ -144,7 +144,7 @@ stale trusted keys.
 
 ## Build
 
-This project targets **Flutter 3.44.0**.
+This project targets **Flutter 3.44.1**.
 
 ```sh
 flutter pub get

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:xterm/xterm.dart';
+import 'package:conduit_vt/conduit_vt.dart';
 
 enum AppPalette {
   catppuccin,
