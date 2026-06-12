@@ -1,0 +1,5 @@
+Select terminal text with a long-press, drag the handles to fine-tune (now with a magnifier), and copy from the popup.
+
+Mosh sessions now end cleanly when the remote shell exits instead of hanging.
+
+Predictive echo is now opt-in and marked experimental. Starting a selection no longer pops the keyboard back up. Various host-settings and interface tweaks.
