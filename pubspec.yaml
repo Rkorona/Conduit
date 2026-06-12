@@ -1,7 +1,7 @@
 name: conduit
 description: "A minimal SSH client for Android and iOS."
 publish_to: 'none'
-version: 1.0.0+4
+version: 1.0.1+5
 
 environment:
   sdk: ^3.12.0
@@ -14,7 +14,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   dartssh2: ^2.17.1
   conduit_vt:
-    path: ../conduit_vt
+    git:
+      url: https://github.com/gwitko/conduit_vt.git
+      ref: master
   dart_mosh: ^0.0.3
   flutter_secure_storage: ^10.3.1
   local_auth: ^3.0.1
