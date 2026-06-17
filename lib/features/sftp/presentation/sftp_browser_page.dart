@@ -6,6 +6,8 @@ import 'package:conduit/features/sftp/domain/file_export.dart';
 import 'package:conduit/features/sftp/domain/sftp_entry.dart';
 import 'package:conduit/features/sftp/domain/sftp_repository.dart';
 import 'package:conduit/features/sftp/presentation/sftp_browser_controller.dart';
+import 'package:conduit/features/terminal/domain/security_key_interaction.dart';
+import 'package:conduit/features/terminal/presentation/security_key_pin_dialog.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +37,7 @@ class _SftpBrowserPageState extends State<SftpBrowserPage> {
   @override
   void initState() {
     super.initState();
+    SecurityKeyInteraction.instance.registerPinPrompt(_promptSecurityKeyPin);
     _controller = SftpBrowserController(
       host: widget.host,
       repository: widget.repository,
@@ -45,9 +48,17 @@ class _SftpBrowserPageState extends State<SftpBrowserPage> {
 
   @override
   void dispose() {
+    SecurityKeyInteraction.instance.unregisterPinPrompt(_promptSecurityKeyPin);
     _searchController.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<String?> _promptSecurityKeyPin(SecurityKeyPinRequest request) {
+    if (!mounted) {
+      return Future<String?>.value();
+    }
+    return showSecurityKeyPinDialog(context, request);
   }
 
   @override

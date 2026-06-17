@@ -25,6 +25,7 @@ import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
 import 'package:conduit/features/terminal/domain/network_connectivity.dart';
 import 'package:conduit/features/terminal/domain/predictive_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/roaming_terminal_session.dart';
+import 'package:conduit/features/terminal/domain/security_key_interaction.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_repository.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_session.dart';
 import 'package:conduit/features/terminal/data/openssh_security_key_signer.dart';
@@ -591,6 +592,32 @@ void main() {
   });
 
   group('OpenSSH security key signer', () {
+    test(
+      'security key PIN prompts use the latest registered handler',
+      () async {
+        Future<String?> first(SecurityKeyPinRequest request) async => 'first';
+        Future<String?> second(SecurityKeyPinRequest request) async {
+          expect(request.retriesRemaining, 2);
+          return 'second';
+        }
+
+        SecurityKeyInteraction.instance.registerPinPrompt(first);
+        SecurityKeyInteraction.instance.registerPinPrompt(second);
+        addTearDown(() {
+          SecurityKeyInteraction.instance.unregisterPinPrompt(second);
+          SecurityKeyInteraction.instance.unregisterPinPrompt(first);
+        });
+
+        expect(
+          await SecurityKeyInteraction.instance.requestPin(retriesRemaining: 2),
+          'second',
+        );
+
+        SecurityKeyInteraction.instance.unregisterPinPrompt(second);
+        expect(await SecurityKeyInteraction.instance.requestPin(), 'first');
+      },
+    );
+
     test('converts CTAP ECDSA assertion into OpenSSH sk signature', () async {
       final device = _FakeCtapDevice(
         signature: const [0x30, 0x06, 0x02, 0x01, 0x05, 0x02, 0x01, 0x07],
@@ -641,7 +668,7 @@ void main() {
         OpenSSHSecurityKeyEd25519KeyPair(
           publicKey: Uint8List.fromList(List<int>.filled(32, 0x01)),
           application: 'ssh:',
-          flags: 0x05,
+          flags: 0x01,
           keyHandle: Uint8List.fromList([0xCC, 0xDD]),
           reserved: '',
         ),

@@ -23,6 +23,7 @@ class SshClientFactory {
              openDevice: FidoHardwareKeyCtapDevice.open,
              closeDevice: FidoHardwareKeyCtapDevice.close,
              onStatus: SecurityKeyInteraction.instance.announce,
+             onPinRequest: SecurityKeyInteraction.instance.requestPin,
            ),
        _keyPairParser = keyPairParser ?? SSHKeyPair.fromPem;
 

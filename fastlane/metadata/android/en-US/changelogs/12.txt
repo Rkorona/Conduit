@@ -1,0 +1,3 @@
+Hardware security keys that require a FIDO2 PIN now work end to end over both USB and NFC. Enter your PIN, touch the key, and connect.
+
+Security-key prompts are clearer when a PIN is wrong, blocked, or times out, and when a key does not match the host.
