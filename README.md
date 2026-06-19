@@ -10,7 +10,10 @@
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Conduit-ff5f5f?logo=kofi&logoColor=white)](https://ko-fi.com/gwitko)
 [![Stars](https://img.shields.io/github/stars/gwitko/Conduit)](https://github.com/gwitko/Conduit/stargazers)
 
-A local-first SSH, Mosh, and SFTP client for Android and iOS.
+> [!CAUTION]
+> Android is on track to become a locked-down platform. [Help keep it open](https://keepandroidopen.org).
+
+A modern, privacy-focused SSH, Mosh, and SFTP client for Android and iOS.
 
 Conduit is for reaching real machines from your phone without signing into
 anything. Hosts, keys, and trusted fingerprints stay on the device - no account,
@@ -21,7 +24,7 @@ phone keyboard doesn't have.
 
 There's an SFTP browser for moving files around, host-key trust you manage
 yourself, an optional device-auth app lock, and a stack of built-in terminal
-themes (Catppuccin, Tokyo Night, Gruvbox, Nord, and the usual suspects).
+themes (Catppuccin, Tokyo Night, Gruvbox, Nord, etc.). E-ink device support is coming!
 
 Mosh runs on [dart_mosh](https://github.com/gwitko/dart_mosh), a clean-room
 Dart implementation of the protocol, and the terminal is
