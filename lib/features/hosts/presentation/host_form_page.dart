@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
+part 'widgets/host_form_sections.dart';
+
 class HostFormPage extends StatefulWidget {
   const HostFormPage({this.host, this.themeController, super.key});
 
@@ -117,257 +119,55 @@ class _HostFormPageState extends State<HostFormPage> {
               onBack: () => Navigator.of(context).pop(),
             ),
             const SizedBox(height: 20),
-            _SectionCard(
-              icon: Icons.dns_rounded,
-              title: 'Connection',
-              caption: 'Where to reach this machine.',
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Display name',
-                    hintText: 'production-edge-01',
-                    prefixIcon: Icon(Icons.label_important_outline_rounded),
-                  ),
-                  textInputAction: TextInputAction.next,
-                  validator: _required,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: TextFormField(
-                        controller: _hostController,
-                        decoration: const InputDecoration(
-                          labelText: 'Host or IP',
-                          hintText: 'edge.example.com',
-                          prefixIcon: Icon(Icons.public_rounded),
-                        ),
-                        keyboardType: TextInputType.url,
-                        textInputAction: TextInputAction.next,
-                        validator: _required,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 1,
-                      child: TextFormField(
-                        controller: _portController,
-                        decoration: const InputDecoration(labelText: 'Port'),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        textInputAction: TextInputAction.next,
-                        validator: _validatePort,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: Icon(Icons.person_outline_rounded),
-                  ),
-                  textInputAction: TextInputAction.next,
-                  validator: _required,
-                ),
-              ],
+            _HostConnectionSection(
+              nameController: _nameController,
+              hostController: _hostController,
+              portController: _portController,
+              usernameController: _usernameController,
+              requiredValidator: _required,
+              portValidator: _validatePort,
             ),
             const SizedBox(height: 14),
-            _SectionCard(
-              icon: Icons.lock_outline_rounded,
-              title: 'Authentication',
-              caption: 'Credentials are stored in platform secure storage.',
-              children: [
-                _AuthMethodPicker(
-                  value: _authMethod,
-                  onChanged: (method) => setState(() => _authMethod = method),
-                ),
-                const SizedBox(height: 14),
-                if (_authMethod == SshAuthMethod.password)
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      helperText: 'Use this for password-only SSH login.',
-                      prefixIcon: const Icon(Icons.key_outlined),
-                      suffixIcon: IconButton(
-                        tooltip: _showPassword ? 'Hide' : 'Show',
-                        icon: Icon(
-                          _showPassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                        onPressed: () =>
-                            setState(() => _showPassword = !_showPassword),
-                      ),
-                    ),
-                    obscureText: !_showPassword,
-                    validator: _authMethod == SshAuthMethod.password
-                        ? _required
-                        : null,
-                  ),
-                if (_authMethod == SshAuthMethod.privateKey ||
-                    _authMethod == SshAuthMethod.hardwareKey) ...[
-                  _AuthExplainer(method: _authMethod),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _privateKeyController,
-                    decoration: InputDecoration(
-                      labelText: _authMethod == SshAuthMethod.hardwareKey
-                          ? 'OpenSSH hardware key stub'
-                          : 'Private key',
-                      helperText: _authMethod == SshAuthMethod.hardwareKey
-                          ? 'Paste the id_ed25519_sk or id_ecdsa_sk file.'
-                          : 'Paste a PEM or OpenSSH private key.',
-                      alignLabelWithHint: true,
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(top: 12),
-                        child: Icon(Icons.vpn_key_outlined),
-                      ),
-                      suffixIcon: IconButton(
-                        tooltip: 'Paste key',
-                        icon: const Icon(Icons.content_paste_rounded),
-                        onPressed: _pasteKey,
-                      ),
-                    ),
-                    minLines: 5,
-                    maxLines: 9,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12.5,
-                    ),
-                    validator:
-                        (_authMethod == SshAuthMethod.privateKey ||
-                            _authMethod == SshAuthMethod.hardwareKey)
-                        ? _validateKeyMaterial
-                        : null,
-                  ),
-                  if (_authMethod == SshAuthMethod.privateKey ||
-                      _authMethod == SshAuthMethod.hardwareKey) ...[
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _passphraseController,
-                      decoration: InputDecoration(
-                        labelText: _authMethod == SshAuthMethod.hardwareKey
-                            ? 'Stub passphrase'
-                            : 'Key passphrase',
-                        helperText: _authMethod == SshAuthMethod.hardwareKey
-                            ? 'Only needed if the *_sk file is encrypted.'
-                            : 'Leave empty for an unencrypted key.',
-                        prefixIcon: const Icon(Icons.shield_outlined),
-                        suffixIcon: IconButton(
-                          tooltip: _showPassphrase ? 'Hide' : 'Show',
-                          icon: Icon(
-                            _showPassphrase
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                          ),
-                          onPressed: () => setState(
-                            () => _showPassphrase = !_showPassphrase,
-                          ),
-                        ),
-                      ),
-                      obscureText: !_showPassphrase,
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  Material(
-                    color: Colors.transparent,
-                    child: SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Forward SSH agent'),
-                      subtitle: const Text(
-                        'Let hosts you connect to use this key to authenticate '
-                        'onward. Hardware keys prompt for a touch on each use.',
-                      ),
-                      value: _forwardAgent,
-                      onChanged: (value) =>
-                          setState(() => _forwardAgent = value),
-                    ),
-                  ),
-                ],
-              ],
+            _HostAuthenticationSection(
+              authMethod: _authMethod,
+              passwordController: _passwordController,
+              privateKeyController: _privateKeyController,
+              passphraseController: _passphraseController,
+              showPassword: _showPassword,
+              showPassphrase: _showPassphrase,
+              forwardAgent: _forwardAgent,
+              requiredValidator: _required,
+              keyMaterialValidator: _validateKeyMaterial,
+              onAuthMethodChanged: (method) =>
+                  setState(() => _authMethod = method),
+              onTogglePasswordVisibility: () =>
+                  setState(() => _showPassword = !_showPassword),
+              onTogglePassphraseVisibility: () =>
+                  setState(() => _showPassphrase = !_showPassphrase),
+              onPasteKey: _pasteKey,
+              onForwardAgentChanged: (value) =>
+                  setState(() => _forwardAgent = value),
             ),
             const SizedBox(height: 14),
-            _SectionCard(
-              icon: Icons.tune_rounded,
-              title: 'Advanced',
-              caption: 'Optional tagging and connection timing.',
-              children: [
-                _TagEditor(
-                  tags: _tags,
-                  controller: _tagController,
-                  focusNode: _tagFocusNode,
-                  onAdd: _addTag,
-                  onRemove: _removeTag,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _timeoutController,
-                  decoration: const InputDecoration(
-                    labelText: 'Connection timeout',
-                    suffixText: 'sec',
-                    prefixIcon: Icon(Icons.timer_outlined),
-                  ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  validator: _validateTimeout,
-                ),
-                const SizedBox(height: 4),
-                Material(
-                  color: Colors.transparent,
-                  child: SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Connect with Mosh'),
-                    subtitle: const Text(
-                      'Roaming UDP session over SSH. Requires mosh-server on the '
-                      'host and open UDP ports.',
-                    ),
-                    value: _useMosh,
-                    onChanged: (value) => setState(() {
-                      _useMosh = value;
-                      if (value) {
-                        _predictiveEchoEnabled = false;
-                      }
-                    }),
-                  ),
-                ),
-                if (_useMosh) ...[
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _moshLocaleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Mosh locale',
-                      helperText:
-                          'Must be a UTF-8 locale installed on the host.',
-                      prefixIcon: Icon(Icons.language_outlined),
-                    ),
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 16),
-                  Material(
-                    color: Colors.transparent,
-                    child: SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Predictive echo (experimental)'),
-                      subtitle: const Text(
-                        'Show local input previews on laggy Mosh sessions.',
-                      ),
-                      value: _predictiveEchoEnabled,
-                      onChanged: (value) =>
-                          setState(() => _predictiveEchoEnabled = value),
-                    ),
-                  ),
-                ],
-              ],
+            _HostAdvancedSection(
+              tags: _tags,
+              tagController: _tagController,
+              tagFocusNode: _tagFocusNode,
+              timeoutController: _timeoutController,
+              moshLocaleController: _moshLocaleController,
+              useMosh: _useMosh,
+              predictiveEchoEnabled: _predictiveEchoEnabled,
+              timeoutValidator: _validateTimeout,
+              onAddTag: _addTag,
+              onRemoveTag: _removeTag,
+              onUseMoshChanged: (value) => setState(() {
+                _useMosh = value;
+                if (value) {
+                  _predictiveEchoEnabled = false;
+                }
+              }),
+              onPredictiveEchoChanged: (value) =>
+                  setState(() => _predictiveEchoEnabled = value),
             ),
             const SizedBox(height: 22),
             SizedBox(

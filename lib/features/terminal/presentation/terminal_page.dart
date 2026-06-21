@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:conduit/core/presentation/conduit_brand.dart';
 import 'package:conduit/core/presentation/system_navigation_insets.dart';
 import 'package:conduit/core/theme/app_palette.dart';
@@ -152,6 +154,13 @@ class _TerminalPageState extends State<TerminalPage> {
                                     .fontFamily,
                                 fontSize:
                                     widget.themeController.terminalFontSize,
+                                onFontSizeChanged: (fontSize) {
+                                  unawaited(
+                                    widget.themeController.setTerminalFontSize(
+                                      fontSize,
+                                    ),
+                                  );
+                                },
                                 predictiveEchoEnabled:
                                     session.host.predictiveEchoEnabled,
                                 focusNode: session == activeSession
@@ -189,6 +198,7 @@ class _TerminalSurface extends StatefulWidget {
     required this.brightness,
     required this.fontFamily,
     required this.fontSize,
+    required this.onFontSizeChanged,
     required this.predictiveEchoEnabled,
     required this.focusNode,
     super.key,
@@ -199,6 +209,7 @@ class _TerminalSurface extends StatefulWidget {
   final Brightness brightness;
   final String fontFamily;
   final double fontSize;
+  final ValueChanged<double> onFontSizeChanged;
   final bool predictiveEchoEnabled;
   final FocusNode? focusNode;
 
@@ -207,6 +218,10 @@ class _TerminalSurface extends StatefulWidget {
 }
 
 class _TerminalSurfaceState extends State<_TerminalSurface> {
+  final _pinchPointers = <int, Offset>{};
+  double? _pinchStartDistance;
+  double? _pinchStartFontSize;
+
   @override
   void initState() {
     super.initState();
@@ -231,34 +246,81 @@ class _TerminalSurfaceState extends State<_TerminalSurface> {
     await widget.session.connect();
   }
 
+  void _handlePointerDown(PointerDownEvent event) {
+    _pinchPointers[event.pointer] = event.localPosition;
+    if (_pinchPointers.length == 2) {
+      _pinchStartDistance = _pinchDistance;
+      _pinchStartFontSize = widget.fontSize;
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (!_pinchPointers.containsKey(event.pointer)) {
+      return;
+    }
+    _pinchPointers[event.pointer] = event.localPosition;
+    final startDistance = _pinchStartDistance;
+    final startFontSize = _pinchStartFontSize;
+    if (_pinchPointers.length != 2 ||
+        startDistance == null ||
+        startDistance == 0 ||
+        startFontSize == null) {
+      return;
+    }
+    widget.onFontSizeChanged(startFontSize * (_pinchDistance / startDistance));
+  }
+
+  void _handlePointerEnd(PointerEvent event) {
+    _pinchPointers.remove(event.pointer);
+    if (_pinchPointers.length < 2) {
+      _pinchStartDistance = null;
+      _pinchStartFontSize = null;
+    }
+  }
+
+  double get _pinchDistance {
+    final points = _pinchPointers.values.take(2).toList();
+    if (points.length < 2) {
+      return 0;
+    }
+    return (points[0] - points[1]).distance;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ClipRect(
-      child: ListenableBuilder(
-        listenable: widget.session.terminalPaintListenable,
-        builder: (context, _) {
-          final overlays = widget.session.overlays;
-          return TerminalView(
-            widget.session.terminal,
-            focusNode: widget.focusNode,
-            autofocus: widget.focusNode != null,
-            deleteDetection: true,
-            keyboardType: TextInputType.visiblePassword,
-            keyboardAppearance: Brightness.dark,
-            theme: widget.palette.terminalThemeFor(widget.brightness),
-            overlays: overlays,
-            textStyle: TerminalStyle(
-              fontFamily: widget.fontFamily,
-              fontSize: widget.fontSize,
-            ),
-            padding: const EdgeInsets.fromLTRB(0, 6, 0, 4),
-            cursorType: overlays.isEmpty
-                ? TerminalCursorType.block
-                : TerminalCursorType.verticalBar,
-            alwaysShowCursor: true,
-            simulateScroll: true,
-          );
-        },
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerEnd,
+        onPointerCancel: _handlePointerEnd,
+        child: ListenableBuilder(
+          listenable: widget.session.terminalPaintListenable,
+          builder: (context, _) {
+            final overlays = widget.session.overlays;
+            return TerminalView(
+              widget.session.terminal,
+              focusNode: widget.focusNode,
+              autofocus: widget.focusNode != null,
+              deleteDetection: true,
+              keyboardType: TextInputType.visiblePassword,
+              keyboardAppearance: Brightness.dark,
+              theme: widget.palette.terminalThemeFor(widget.brightness),
+              overlays: overlays,
+              textStyle: TerminalStyle(
+                fontFamily: widget.fontFamily,
+                fontSize: widget.fontSize,
+              ),
+              padding: const EdgeInsets.fromLTRB(0, 6, 0, 4),
+              cursorType: overlays.isEmpty
+                  ? TerminalCursorType.block
+                  : TerminalCursorType.verticalBar,
+              alwaysShowCursor: true,
+              simulateScroll: true,
+            );
+          },
+        ),
       ),
     );
   }

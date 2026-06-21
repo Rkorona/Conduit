@@ -31,6 +31,7 @@ import 'package:conduit/features/terminal/domain/ssh_terminal_session.dart';
 import 'package:conduit/features/terminal/data/openssh_security_key_signer.dart';
 import 'package:conduit/features/terminal/data/ssh_client_factory.dart';
 import 'package:conduit/features/terminal/presentation/host_key_prompt_coordinator.dart';
+import 'package:conduit/features/terminal/presentation/terminal_page.dart';
 import 'package:conduit/features/terminal/presentation/terminal_session_controller.dart';
 import 'package:conduit/features/terminal/presentation/terminal_workspace_controller.dart';
 import 'package:conduit/main.dart';
@@ -164,6 +165,45 @@ void main() {
     await workspace.closeAll();
     expect(workspace.sessions, isEmpty);
     expect(workspace.liveSessionCount, 0);
+  });
+
+  testWidgets('pinch zoom changes the terminal appearance font size', (
+    tester,
+  ) async {
+    final themeController = ThemeController(_InMemoryThemePreferences());
+    await themeController.load();
+    final workspace = TerminalWorkspaceController(
+      _ImmediateTerminalRepository(_FakeTerminalSession()),
+    );
+    addTearDown(workspace.dispose);
+    workspace.open(_buildHost('zoom'));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TerminalPage(
+          workspace: workspace,
+          themeController: themeController,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final initialFontSize = themeController.terminalFontSize;
+    final terminalCenter = tester.getCenter(find.byType(TerminalView));
+    final firstFinger = await tester.createGesture(pointer: 1);
+    final secondFinger = await tester.createGesture(pointer: 2);
+
+    await firstFinger.down(terminalCenter.translate(-40, 0));
+    await secondFinger.down(terminalCenter.translate(40, 0));
+    await tester.pump();
+    await firstFinger.moveTo(terminalCenter.translate(-80, 0));
+    await secondFinger.moveTo(terminalCenter.translate(80, 0));
+    await tester.pump();
+    await firstFinger.up();
+    await secondFinger.up();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(themeController.terminalFontSize, greaterThan(initialFontSize));
   });
 
   group('TerminalSessionController', () {
