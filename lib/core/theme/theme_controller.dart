@@ -11,7 +11,7 @@ class ThemeController extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.dark;
   AppPalette _palette = AppPalette.synthwave;
   TerminalFontOption _terminalFont = TerminalFontOption.atkynsonNerdFont;
-  double _terminalFontSize = 13.5;
+  double _terminalFontSize = terminalFontSizeDefault;
   List<TerminalKeyboardAction> _terminalKeyboardActions =
       defaultTerminalKeyboardActions;
 
@@ -60,11 +60,11 @@ class ThemeController extends ChangeNotifier {
   }
 
   Future<void> setTerminalFontSize(double size) async {
-    final normalized = (size * 2).round() / 2;
+    final normalized = normalizeTerminalFontSize(size);
     if (_terminalFontSize == normalized) {
       return;
     }
-    _terminalFontSize = normalized.clamp(6, 30).toDouble();
+    _terminalFontSize = normalized;
     notifyListeners();
     await _save();
   }

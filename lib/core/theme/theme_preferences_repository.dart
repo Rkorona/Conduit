@@ -8,7 +8,7 @@ class ThemePreferences {
     required this.themeMode,
     required this.palette,
     this.terminalFont = TerminalFontOption.atkynsonNerdFont,
-    this.terminalFontSize = 13.5,
+    this.terminalFontSize = terminalFontSizeDefault,
     this.terminalKeyboardActions = defaultTerminalKeyboardActions,
   });
 
@@ -58,8 +58,8 @@ class ThemePreferencesRepository {
         orElse: () => TerminalFontOption.atkynsonNerdFont,
       ),
       terminalFontSize: terminalFontSize == null
-          ? 13.5
-          : terminalFontSize.clamp(6, 30).toDouble(),
+          ? terminalFontSizeDefault
+          : clampTerminalFontSize(terminalFontSize),
       terminalKeyboardActions: terminalKeyboardActions,
     );
   }

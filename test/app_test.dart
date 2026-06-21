@@ -6,6 +6,7 @@ import 'package:cbor/cbor.dart';
 import 'package:conduit/core/app_failure.dart';
 import 'package:conduit/core/presentation/system_navigation_insets.dart';
 import 'package:conduit/core/theme/app_palette.dart';
+import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/core/theme/theme_controller.dart';
 import 'package:conduit/core/theme/theme_preferences_repository.dart';
 import 'package:conduit/features/app_lock/domain/app_authenticator.dart';
@@ -210,11 +211,11 @@ void main() {
     final themeController = ThemeController(_InMemoryThemePreferences());
     await themeController.load();
 
-    await themeController.setTerminalFontSize(4);
-    expect(themeController.terminalFontSize, 6);
+    await themeController.setTerminalFontSize(terminalFontSizeMin - 1);
+    expect(themeController.terminalFontSize, terminalFontSizeMin);
 
-    await themeController.setTerminalFontSize(50);
-    expect(themeController.terminalFontSize, 30);
+    await themeController.setTerminalFontSize(terminalFontSizeMax + 1);
+    expect(themeController.terminalFontSize, terminalFontSizeMax);
   });
 
   group('TerminalSessionController', () {
