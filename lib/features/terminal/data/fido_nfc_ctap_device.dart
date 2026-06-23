@@ -28,8 +28,6 @@ class FidoNfcCtapDevice extends CtapDevice {
       timeout: const Duration(seconds: 30),
       androidCheckNDEF: false,
       iosAlertMessage: 'Hold your security key near the phone.',
-      readIso14443A: true,
-      readIso14443B: true,
       readIso15693: false,
     );
 

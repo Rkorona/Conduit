@@ -30,6 +30,7 @@ class SavedHost {
     this.predictiveEchoEnabled = false,
     this.startTmuxOnConnect = false,
     this.tmuxPrefixKey = defaultTmuxPrefixKey,
+    this.tmuxStartDirectory = '',
     this.lastConnectedAt,
   });
 
@@ -50,6 +51,7 @@ class SavedHost {
   final bool predictiveEchoEnabled;
   final bool startTmuxOnConnect;
   final TmuxPrefixKey tmuxPrefixKey;
+  final String tmuxStartDirectory;
   final DateTime? lastConnectedAt;
 
   bool get isValid =>
@@ -87,6 +89,7 @@ class SavedHost {
     bool? predictiveEchoEnabled,
     bool? startTmuxOnConnect,
     TmuxPrefixKey? tmuxPrefixKey,
+    String? tmuxStartDirectory,
     DateTime? lastConnectedAt,
     bool clearLastConnectedAt = false,
   }) {
@@ -110,6 +113,7 @@ class SavedHost {
           predictiveEchoEnabled ?? this.predictiveEchoEnabled,
       startTmuxOnConnect: startTmuxOnConnect ?? this.startTmuxOnConnect,
       tmuxPrefixKey: tmuxPrefixKey ?? this.tmuxPrefixKey,
+      tmuxStartDirectory: tmuxStartDirectory ?? this.tmuxStartDirectory,
       lastConnectedAt: clearLastConnectedAt
           ? null
           : lastConnectedAt ?? this.lastConnectedAt,
@@ -135,6 +139,7 @@ class SavedHost {
       'predictiveEchoEnabled': predictiveEchoEnabled,
       'startTmuxOnConnect': startTmuxOnConnect,
       'tmuxPrefixKey': tmuxPrefixKey.name,
+      'tmuxStartDirectory': tmuxStartDirectory,
       'lastConnectedAt': lastConnectedAt?.toIso8601String(),
     };
   }
@@ -175,6 +180,7 @@ class SavedHost {
         (key) => key.name == json['tmuxPrefixKey'],
         orElse: () => defaultTmuxPrefixKey,
       ),
+      tmuxStartDirectory: (json['tmuxStartDirectory'] as String?)?.trim() ?? '',
       lastConnectedAt: lastConnectedAtRaw == null
           ? null
           : DateTime.tryParse(lastConnectedAtRaw),

@@ -22,8 +22,6 @@ class LocalAppAuthenticator implements AppAuthenticator {
     try {
       final authenticated = await _localAuthentication.authenticate(
         localizedReason: 'Unlock Conduit to access saved SSH machines.',
-        biometricOnly: false,
-        persistAcrossBackgrounding: false,
       );
       return authenticated
           ? AppAuthenticationResult.success

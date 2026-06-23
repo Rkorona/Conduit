@@ -1,11 +1,11 @@
-import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/presentation/system_navigation_insets.dart';
+import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/terminal/presentation/terminal_session_controller.dart';
+import 'package:conduit_vt/conduit_vt.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:conduit_vt/conduit_vt.dart';
 
 class TerminalKeyboardBar extends StatelessWidget {
   const TerminalKeyboardBar({

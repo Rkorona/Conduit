@@ -166,10 +166,10 @@ packages:
     dependency: "direct main"
     description:
       name: dart_mosh
-      sha256: "30629e464838cd31ed63ca6e0de1c1a8fbb5282248e2e7e0977ac063ad571901"
+      sha256: "3301f3c6537e265bc70cc703105657a401088fd405cbc9776b12da3a2124a52d"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.3"
+    version: "0.0.4"
   dartssh2:
     dependency: "direct main"
     description:

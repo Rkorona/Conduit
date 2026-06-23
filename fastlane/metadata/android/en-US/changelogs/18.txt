@@ -1,0 +1,5 @@
+Tmux integration: optionally start or attach a tmux session on connect, with a start directory and prefix key per host. Drive tmux straight from the key row with prefix and action buttons, plus a scrollback mode.
+
+Mosh sessions now recover on their own after the network drops and comes back, instead of erroring out.
+
+Terminal tabs are now named after the saved machine.

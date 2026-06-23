@@ -5,8 +5,8 @@ import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/sftp/domain/sftp_entry.dart';
 import 'package:conduit/features/sftp/domain/sftp_repository.dart';
 import 'package:conduit/features/sftp/domain/sftp_session.dart';
-import 'package:conduit/features/terminal/data/ssh_error_formatter.dart';
 import 'package:conduit/features/terminal/data/ssh_client_factory.dart';
+import 'package:conduit/features/terminal/data/ssh_error_formatter.dart';
 import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
 import 'package:dartssh2/dartssh2.dart';
 

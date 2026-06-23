@@ -2,12 +2,12 @@ import 'package:conduit/core/presentation/conduit_brand.dart';
 import 'package:conduit/core/presentation/system_navigation_insets.dart';
 import 'package:conduit/core/theme/theme_controller.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
+import 'package:conduit/features/hosts/presentation/widgets/host_form_chrome.dart';
+import 'package:conduit/features/hosts/presentation/widgets/host_form_sections.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
-
-part 'widgets/host_form_sections.dart';
 
 class HostFormPage extends StatefulWidget {
   const HostFormPage({this.host, this.themeController, super.key});
@@ -31,6 +31,7 @@ class _HostFormPageState extends State<HostFormPage> {
   final _tagController = TextEditingController();
   final _timeoutController = TextEditingController(text: '12');
   final _moshLocaleController = TextEditingController(text: 'C.UTF-8');
+  final _tmuxStartDirectoryController = TextEditingController();
   final FocusNode _tagFocusNode = FocusNode();
   SshAuthMethod _authMethod = SshAuthMethod.password;
   bool _showPassword = false;
@@ -65,6 +66,7 @@ class _HostFormPageState extends State<HostFormPage> {
       _forwardAgent = host.forwardAgent;
       _startTmuxOnConnect = host.startTmuxOnConnect;
       _tmuxPrefixKey = host.tmuxPrefixKey;
+      _tmuxStartDirectoryController.text = host.tmuxStartDirectory;
     }
   }
 
@@ -81,6 +83,7 @@ class _HostFormPageState extends State<HostFormPage> {
     _tagFocusNode.dispose();
     _timeoutController.dispose();
     _moshLocaleController.dispose();
+    _tmuxStartDirectoryController.dispose();
     super.dispose();
   }
 
@@ -115,7 +118,7 @@ class _HostFormPageState extends State<HostFormPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
           children: [
-            _HeaderBar(
+            HostFormHeader(
               title: _isEditing ? 'Edit machine' : 'New machine',
               subtitle: _isEditing
                   ? 'Update connection details and credentials.'
@@ -123,7 +126,7 @@ class _HostFormPageState extends State<HostFormPage> {
               onBack: () => Navigator.of(context).pop(),
             ),
             const SizedBox(height: 20),
-            _HostConnectionSection(
+            HostConnectionSection(
               nameController: _nameController,
               hostController: _hostController,
               portController: _portController,
@@ -132,7 +135,7 @@ class _HostFormPageState extends State<HostFormPage> {
               portValidator: _validatePort,
             ),
             const SizedBox(height: 14),
-            _HostAuthenticationSection(
+            HostAuthenticationSection(
               authMethod: _authMethod,
               passwordController: _passwordController,
               privateKeyController: _privateKeyController,
@@ -153,12 +156,13 @@ class _HostFormPageState extends State<HostFormPage> {
                   setState(() => _forwardAgent = value),
             ),
             const SizedBox(height: 14),
-            _HostAdvancedSection(
+            HostAdvancedSection(
               tags: _tags,
               tagController: _tagController,
               tagFocusNode: _tagFocusNode,
               timeoutController: _timeoutController,
               moshLocaleController: _moshLocaleController,
+              tmuxStartDirectoryController: _tmuxStartDirectoryController,
               useMosh: _useMosh,
               predictiveEchoEnabled: _predictiveEchoEnabled,
               startTmuxOnConnect: _startTmuxOnConnect,
@@ -275,6 +279,7 @@ class _HostFormPageState extends State<HostFormPage> {
       predictiveEchoEnabled: _predictiveEchoEnabled,
       startTmuxOnConnect: _startTmuxOnConnect,
       tmuxPrefixKey: _tmuxPrefixKey,
+      tmuxStartDirectory: _tmuxStartDirectoryController.text.trim(),
       lastConnectedAt: currentHost?.lastConnectedAt,
     );
 
@@ -323,434 +328,5 @@ class _HostFormPageState extends State<HostFormPage> {
     final timeout = int.tryParse(value ?? '');
     if (timeout == null || timeout < 3 || timeout > 120) return '3-120';
     return null;
-  }
-}
-
-class _TagEditor extends StatelessWidget {
-  const _TagEditor({
-    required this.tags,
-    required this.controller,
-    required this.focusNode,
-    required this.onAdd,
-    required this.onRemove,
-  });
-
-  final List<String> tags;
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onAdd;
-  final ValueChanged<String> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: controller,
-          focusNode: focusNode,
-          textInputAction: TextInputAction.done,
-          decoration: InputDecoration(
-            labelText: 'Tags',
-            hintText: 'production, edge, eu-west…  press enter to add',
-            prefixIcon: const Icon(Icons.tag_rounded),
-            suffixIcon: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                if (value.text.trim().isEmpty) return const SizedBox.shrink();
-                return IconButton(
-                  tooltip: 'Add tag',
-                  icon: Icon(
-                    Icons.add_circle_rounded,
-                    color: colorScheme.primary,
-                  ),
-                  onPressed: () => onAdd(value.text),
-                );
-              },
-            ),
-          ),
-          onSubmitted: (value) {
-            onAdd(value);
-            focusNode.requestFocus();
-          },
-          onChanged: (value) {
-            if (value.contains(',')) {
-              final parts = value.split(',');
-              for (final part in parts.take(parts.length - 1)) {
-                onAdd(part);
-              }
-              controller.text = parts.last.trimLeft();
-              controller.selection = TextSelection.collapsed(
-                offset: controller.text.length,
-              );
-            }
-          },
-        ),
-        if (tags.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final tag in tags)
-                _EditableTagChip(label: tag, onRemove: () => onRemove(tag)),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _EditableTagChip extends StatelessWidget {
-  const _EditableTagChip({required this.label, required this.onRemove});
-
-  final String label;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 5, 4, 5),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          colorScheme.primary.withValues(alpha: 0.14),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.tag_rounded, size: 13, color: colorScheme.primary),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: colorScheme.primary,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(width: 2),
-          InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onRemove,
-            child: Padding(
-              padding: const EdgeInsets.all(3),
-              child: Icon(
-                Icons.close_rounded,
-                size: 14,
-                color: colorScheme.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuthMethodPicker extends StatelessWidget {
-  const _AuthMethodPicker({required this.value, required this.onChanged});
-
-  final SshAuthMethod value;
-  final ValueChanged<SshAuthMethod> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      spacing: 8,
-      children: [
-        _AuthMethodTile(
-          value: SshAuthMethod.password,
-          groupValue: value,
-          icon: Icons.password_rounded,
-          title: 'Password',
-          subtitle: 'Use the account password for SSH login.',
-          onChanged: onChanged,
-        ),
-        _AuthMethodTile(
-          value: SshAuthMethod.privateKey,
-          groupValue: value,
-          icon: Icons.vpn_key_rounded,
-          title: 'Private key',
-          subtitle: 'Use a PEM or OpenSSH private key.',
-          onChanged: onChanged,
-        ),
-        _AuthMethodTile(
-          value: SshAuthMethod.hardwareKey,
-          groupValue: value,
-          icon: Icons.usb_rounded,
-          title: 'Hardware key',
-          subtitle: 'Use an OpenSSH *_sk stub with USB or NFC.',
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-}
-
-class _AuthMethodTile extends StatelessWidget {
-  const _AuthMethodTile({
-    required this.value,
-    required this.groupValue,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onChanged,
-  });
-
-  final SshAuthMethod value;
-  final SshAuthMethod groupValue;
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final ValueChanged<SshAuthMethod> onChanged;
-
-  bool get _selected => value == groupValue;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () => onChanged(value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-          decoration: BoxDecoration(
-            color: _selected
-                ? Color.alphaBlend(
-                    colorScheme.primary.withValues(alpha: 0.12),
-                    colorScheme.surface,
-                  )
-                : colorScheme.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: _selected
-                  ? colorScheme.primary
-                  : colorScheme.outlineVariant,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: _selected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: _selected
-                            ? colorScheme.primary
-                            : colorScheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.15,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                _selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: 20,
-                color: _selected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AuthExplainer extends StatelessWidget {
-  const _AuthExplainer({required this.method});
-
-  final SshAuthMethod method;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final hardwareKey = method == SshAuthMethod.hardwareKey;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          colorScheme.primary.withValues(alpha: 0.08),
-          colorScheme.surface,
-        ),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            hardwareKey ? Icons.usb_rounded : Icons.vpn_key_outlined,
-            size: 18,
-            color: colorScheme.primary,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              hardwareKey
-                  ? 'Use the OpenSSH *_sk private key stub from your computer. '
-                        'Conduit stores the stub, then asks your security key '
-                        'to sign over USB or NFC when you connect.'
-                  : 'Use a normal SSH private key. If the key is encrypted, '
-                        'enter its passphrase below.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                height: 1.25,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderBar extends StatelessWidget {
-  const _HeaderBar({
-    required this.title,
-    required this.subtitle,
-    required this.onBack,
-  });
-
-  final String title;
-  final String subtitle;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        IconButton.outlined(
-          onPressed: onBack,
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: theme.textTheme.headlineSmall),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const ConduitGlyph(size: 26),
-      ],
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.icon,
-    required this.title,
-    required this.caption,
-    required this.children,
-  });
-
-  final IconData icon;
-  final String title;
-  final String caption;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Color.alphaBlend(
-                    colorScheme.primary.withValues(alpha: 0.16),
-                    colorScheme.surface,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 16, color: colorScheme.primary),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: theme.textTheme.titleSmall),
-                    Text(
-                      caption,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...children,
-        ],
-      ),
-    );
   }
 }

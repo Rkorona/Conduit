@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:conduit/core/theme/app_theme.dart';
 import 'package:conduit/core/presentation/system_navigation_insets.dart';
+import 'package:conduit/core/theme/app_theme.dart';
 import 'package:conduit/core/theme/theme_controller.dart';
 import 'package:conduit/core/theme/theme_preferences_repository.dart';
 import 'package:conduit/features/app_lock/data/local_app_authenticator.dart';

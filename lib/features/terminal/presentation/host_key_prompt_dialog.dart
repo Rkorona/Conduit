@@ -27,9 +27,9 @@ Future<HostKeyDecision?> showHostKeyPromptDialog({
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
                     'The server at ${request.host}:${request.port} is presenting '
-                    "a different key than the one you previously trusted. This "
-                    "can indicate a man-in-the-middle attack, or the server "
-                    "may have been legitimately rekeyed.",
+                    'a different key than the one you previously trusted. This '
+                    'can indicate a man-in-the-middle attack, or the server '
+                    'may have been legitimately rekeyed.',
                     style: TextStyle(color: colorScheme.error),
                   ),
                 )

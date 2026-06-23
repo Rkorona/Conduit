@@ -1,13 +1,19 @@
-part of '../host_form_page.dart';
+import 'package:conduit/features/hosts/domain/saved_host.dart';
+import 'package:conduit/features/hosts/presentation/widgets/auth_method_picker.dart';
+import 'package:conduit/features/hosts/presentation/widgets/host_form_chrome.dart';
+import 'package:conduit/features/hosts/presentation/widgets/tag_editor.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-class _HostConnectionSection extends StatelessWidget {
-  const _HostConnectionSection({
+class HostConnectionSection extends StatelessWidget {
+  const HostConnectionSection({
     required this.nameController,
     required this.hostController,
     required this.portController,
     required this.usernameController,
     required this.requiredValidator,
     required this.portValidator,
+    super.key,
   });
 
   final TextEditingController nameController;
@@ -19,7 +25,7 @@ class _HostConnectionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SectionCard(
+    return HostFormSectionCard(
       icon: Icons.dns_rounded,
       title: 'Connection',
       caption: 'Where to reach this machine.',
@@ -54,7 +60,6 @@ class _HostConnectionSection extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              flex: 1,
               child: TextFormField(
                 controller: portController,
                 decoration: const InputDecoration(labelText: 'Port'),
@@ -81,8 +86,8 @@ class _HostConnectionSection extends StatelessWidget {
   }
 }
 
-class _HostAuthenticationSection extends StatelessWidget {
-  const _HostAuthenticationSection({
+class HostAuthenticationSection extends StatelessWidget {
+  const HostAuthenticationSection({
     required this.authMethod,
     required this.passwordController,
     required this.privateKeyController,
@@ -97,6 +102,7 @@ class _HostAuthenticationSection extends StatelessWidget {
     required this.onTogglePassphraseVisibility,
     required this.onPasteKey,
     required this.onForwardAgentChanged,
+    super.key,
   });
 
   final SshAuthMethod authMethod;
@@ -116,12 +122,12 @@ class _HostAuthenticationSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SectionCard(
+    return HostFormSectionCard(
       icon: Icons.lock_outline_rounded,
       title: 'Authentication',
       caption: 'Credentials are stored in platform secure storage.',
       children: [
-        _AuthMethodPicker(value: authMethod, onChanged: onAuthMethodChanged),
+        AuthMethodPicker(value: authMethod, onChanged: onAuthMethodChanged),
         const SizedBox(height: 14),
         if (authMethod == SshAuthMethod.password)
           TextFormField(
@@ -147,7 +153,7 @@ class _HostAuthenticationSection extends StatelessWidget {
           ),
         if (authMethod == SshAuthMethod.privateKey ||
             authMethod == SshAuthMethod.hardwareKey) ...[
-          _AuthExplainer(method: authMethod),
+          AuthExplainer(method: authMethod),
           const SizedBox(height: 12),
           TextFormField(
             controller: privateKeyController,
@@ -221,13 +227,14 @@ class _HostAuthenticationSection extends StatelessWidget {
   }
 }
 
-class _HostAdvancedSection extends StatelessWidget {
-  const _HostAdvancedSection({
+class HostAdvancedSection extends StatelessWidget {
+  const HostAdvancedSection({
     required this.tags,
     required this.tagController,
     required this.tagFocusNode,
     required this.timeoutController,
     required this.moshLocaleController,
+    required this.tmuxStartDirectoryController,
     required this.useMosh,
     required this.predictiveEchoEnabled,
     required this.startTmuxOnConnect,
@@ -239,6 +246,7 @@ class _HostAdvancedSection extends StatelessWidget {
     required this.onPredictiveEchoChanged,
     required this.onStartTmuxOnConnectChanged,
     required this.onTmuxPrefixKeyChanged,
+    super.key,
   });
 
   final List<String> tags;
@@ -246,6 +254,7 @@ class _HostAdvancedSection extends StatelessWidget {
   final FocusNode tagFocusNode;
   final TextEditingController timeoutController;
   final TextEditingController moshLocaleController;
+  final TextEditingController tmuxStartDirectoryController;
   final bool useMosh;
   final bool predictiveEchoEnabled;
   final bool startTmuxOnConnect;
@@ -260,12 +269,12 @@ class _HostAdvancedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SectionCard(
+    return HostFormSectionCard(
       icon: Icons.tune_rounded,
       title: 'Advanced',
       caption: 'Optional tagging and connection timing.',
       children: [
-        _TagEditor(
+        TagEditor(
           tags: tags,
           controller: tagController,
           focusNode: tagFocusNode,
@@ -338,6 +347,24 @@ class _HostAdvancedSection extends StatelessWidget {
             onChanged: onStartTmuxOnConnectChanged,
           ),
         ),
+        if (startTmuxOnConnect) ...[
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: tmuxStartDirectoryController,
+            decoration: const InputDecoration(
+              labelText: 'Tmux start directory',
+              hintText: '~/projects',
+              helperText:
+                  'Used when a new tmux session is created. An existing tmux '
+                  'session keeps its directory.',
+              helperMaxLines: 2,
+              prefixIcon: Icon(Icons.folder_outlined),
+            ),
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
+          ),
+        ],
         const SizedBox(height: 12),
         DropdownButtonFormField<TmuxPrefixKey>(
           initialValue: tmuxPrefixKey,

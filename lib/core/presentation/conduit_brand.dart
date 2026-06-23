@@ -18,7 +18,6 @@ class ConduitWordmark extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         ConduitGlyph(size: size * 0.95),
         SizedBox(width: size * 0.4),
@@ -199,7 +198,7 @@ class ConduitStatusPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

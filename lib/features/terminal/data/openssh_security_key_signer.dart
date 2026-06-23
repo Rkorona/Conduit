@@ -182,7 +182,8 @@ class OpenSshSecurityKeySigner {
     bool forceUserVerification = false,
     String? presetPin,
   }) async {
-    final requiresUserVerification = forceUserVerification ||
+    final requiresUserVerification =
+        forceUserVerification ||
         presetPin != null ||
         _requiresUserVerification(keyPair.flags);
     final pinAuth = requiresUserVerification
