@@ -4,6 +4,7 @@ import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/theme/app_theme.dart';
 import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/core/theme/theme_controller.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -66,10 +67,12 @@ class _ThemeSheet extends StatelessWidget {
                   const ConduitSectionLabel('Terminal'),
                   const SizedBox(height: 10),
                   _TerminalAppearanceControls(controller: controller),
-                  const SizedBox(height: 22),
-                  const ConduitSectionLabel('Home'),
-                  const SizedBox(height: 10),
-                  _HomeAppearanceControls(controller: controller),
+                  if (defaultTargetPlatform == TargetPlatform.android) ...[
+                    const SizedBox(height: 22),
+                    const ConduitSectionLabel('Home'),
+                    const SizedBox(height: 10),
+                    _HomeAppearanceControls(controller: controller),
+                  ],
                   const SizedBox(height: 22),
                   const ConduitSectionLabel('Palette'),
                   const SizedBox(height: 10),
