@@ -1,0 +1,3 @@
+Small fixes for the Appearance settings.
+
+* Fixed the "Show local shell" toggle showing on platforms without a local shell; it now appears only on Android, where the local shell is available.
