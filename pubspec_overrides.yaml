@@ -1,3 +1,0 @@
-dependency_overrides:
-  dartssh2:
-    path: ../dartssh2_conduit
