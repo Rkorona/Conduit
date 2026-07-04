@@ -22,7 +22,7 @@ dependencies:
   conduit_vt:
     git:
       url: https://github.com/gwitko/conduit_vt.git
-      ref: 25ba3a96d156e5464a48ff4238486a7ddfff2cfd
+      ref: 57222273f969892c6b45b0fcfdbe65a0f54743a9
   dart_mosh: ^0.0.4
   flutter_pty: ^0.4.2
   ffi: ^2.2.0

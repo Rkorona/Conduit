@@ -9,6 +9,9 @@ Thanks to the people who have contributed fixes, testing, and improvements to Co
   - Added optional compose-mode staging input for full native IME support.
   - Added compose history recall for recently sent lines.
   - Preserved the unsent compose draft when the composer is closed.
+  - Fixed copied selection text losing blank-cell spacing in `conduit_vt`.
+  - Fixed a crash when erasing to column 0 in `conduit_vt`.
+  - Fixed missing repaints when terminal content changes without a layout change in `conduit_vt`.
 
 - [dorokuma](https://github.com/dorokuma)
   - Fixed Android on-screen keyboard behavior for TUI apps in `conduit_vt`.

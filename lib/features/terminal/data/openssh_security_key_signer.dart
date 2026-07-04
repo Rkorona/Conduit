@@ -125,6 +125,7 @@ class OpenSshSecurityKeySigner {
     var collectPinUpFront =
         Platform.isIOS && _requiresUserVerification(keyPair.flags);
     String? presetPin;
+    var presetPinFromCache = false;
     int? pinRetriesRemaining;
     var pinAttempts = 0;
     var nfcRetried = false;
@@ -132,7 +133,11 @@ class OpenSshSecurityKeySigner {
 
     while (true) {
       if (collectPinUpFront) {
-        presetPin = await _promptForPin(retriesRemaining: pinRetriesRemaining);
+        final cachedPin = session.cachedPin;
+        presetPinFromCache = cachedPin != null;
+        presetPin =
+            cachedPin ??
+            await _promptForPin(retriesRemaining: pinRetriesRemaining);
       }
 
       onStatus?.call(_waitingMessage(session));
@@ -141,9 +146,15 @@ class OpenSshSecurityKeySigner {
       try {
         if (!entry.requiresUserVerification) {
           await _checkPresence(device, entry, session, clientDataHash);
+        } else if (presetPin == null &&
+            session.cachedPin == null &&
+            !session.hasFreshResult(entry) &&
+            session.entries.length > 1) {
+          await _identifyPresentedKey(device, entry, session, clientDataHash);
         }
-        final request = await _buildAssertionRequest(
+        var request = await _buildAssertionRequest(
           device: device,
+          session: session,
           keyPair: keyPair,
           clientDataHash: clientDataHash,
           presetPin: presetPin,
@@ -156,18 +167,26 @@ class OpenSshSecurityKeySigner {
             collectPinUpFront = true;
             continue;
           }
-          final pinRequest = await _buildAssertionRequest(
+          request = await _buildAssertionRequest(
             device: device,
+            session: session,
             keyPair: keyPair,
             clientDataHash: clientDataHash,
             forceUserVerification: true,
           );
           onStatus?.call(_interactionMessage(device));
-          response = await device.transceive(pinRequest.encode());
+          response = await device.transceive(request.encode());
         }
         if (response.status == CtapStatusCode.ctap2ErrNoCredentials.value) {
           session.record(entry, present: false);
-          await _probeSiblings(device, entry, session, clientDataHash);
+          await _probeSiblings(
+            device,
+            entry,
+            session,
+            clientDataHash,
+            pinAuth: request.pinAuth,
+            pinProtocol: request.pinProtocol,
+          );
           throw _mismatchError(entry, session);
         }
         if (response.status != CtapStatusCode.ctap1ErrSuccess.value) {
@@ -180,17 +199,25 @@ class OpenSshSecurityKeySigner {
         onStatus?.call('Hardware key accepted.');
         return GetAssertionResponse.decode(response.data);
       } on _PinRejected catch (rejection) {
-        pinAttempts++;
         pinRetriesRemaining = rejection.retriesRemaining;
         presetPin = null;
         collectPinUpFront = true;
+        final rejectedCachedPin = presetPinFromCache;
+        presetPinFromCache = false;
+        if (!rejectedCachedPin) {
+          pinAttempts++;
+        }
         final outOfRetries =
             pinRetriesRemaining != null && pinRetriesRemaining <= 0;
         if (pinAttempts >= maxPinAttempts || outOfRetries) {
           onStatus?.call(describeCtapStatus(rejection.error.status));
           throw rejection.error;
         }
-        onStatus?.call('Security key PIN was incorrect. Try again.');
+        onStatus?.call(
+          rejectedCachedPin
+              ? 'Enter the PIN for this security key.'
+              : 'Security key PIN was incorrect. Try again.',
+        );
         continue;
       } catch (error) {
         if (!nfcRetried && _shouldRetryNfc(device, error)) {
@@ -237,11 +264,35 @@ class OpenSshSecurityKeySigner {
     }
   }
 
+  Future<void> _identifyPresentedKey(
+    CtapDevice device,
+    _SecurityKeyEntry entry,
+    _SecurityKeySession session,
+    List<int> clientDataHash,
+  ) async {
+    final presence = await _probeCredential(
+      device,
+      entry.keyPair,
+      clientDataHash,
+    );
+    if (presence == _CredentialPresence.present) {
+      session.record(entry, present: true);
+      return;
+    }
+    await _probeSiblings(device, entry, session, clientDataHash);
+    final present = session.presentEntry();
+    if (present != null && !identical(present, entry)) {
+      throw _mismatchError(entry, session);
+    }
+  }
+
   Future<_CredentialPresence> _probeCredential(
     CtapDevice device,
     OpenSSHSecurityKeyPair keyPair,
-    List<int> clientDataHash,
-  ) async {
+    List<int> clientDataHash, {
+    List<int>? pinAuth,
+    int? pinProtocol,
+  }) async {
     final request = GetAssertionRequest(
       rpId: keyPair.application,
       clientDataHash: clientDataHash,
@@ -252,6 +303,8 @@ class OpenSshSecurityKeySigner {
         ),
       ],
       options: {'up': false},
+      pinAuth: pinAuth,
+      pinProtocol: pinProtocol,
     );
     final response = await device.transceive(request.encode());
     if (response.status == CtapStatusCode.ctap1ErrSuccess.value) {
@@ -267,24 +320,28 @@ class OpenSshSecurityKeySigner {
     CtapDevice device,
     _SecurityKeyEntry entry,
     _SecurityKeySession session,
-    List<int> clientDataHash,
-  ) async {
+    List<int> clientDataHash, {
+    List<int>? pinAuth,
+    int? pinProtocol,
+  }) async {
     for (final sibling in session.entries) {
-      if (identical(sibling, entry) ||
-          sibling.requiresUserVerification ||
-          session.hasFreshResult(sibling)) {
+      if (identical(sibling, entry) || session.hasFreshResult(sibling)) {
         continue;
       }
+      final probeWithPin = sibling.requiresUserVerification && pinAuth != null;
       final presence = await _probeCredential(
         device,
         sibling.keyPair,
         clientDataHash,
+        pinAuth: probeWithPin ? pinAuth : null,
+        pinProtocol: probeWithPin ? pinProtocol : null,
       );
-      if (presence != _CredentialPresence.inconclusive) {
-        session.record(
-          sibling,
-          present: presence == _CredentialPresence.present,
-        );
+      if (presence == _CredentialPresence.inconclusive) {
+        continue;
+      }
+      final present = presence == _CredentialPresence.present;
+      if (present || probeWithPin || !sibling.requiresUserVerification) {
+        session.record(sibling, present: present);
       }
     }
   }
@@ -317,6 +374,7 @@ class OpenSshSecurityKeySigner {
 
   Future<GetAssertionRequest> _buildAssertionRequest({
     required CtapDevice device,
+    required _SecurityKeySession session,
     required OpenSSHSecurityKeyPair keyPair,
     required List<int> clientDataHash,
     bool forceUserVerification = false,
@@ -329,6 +387,7 @@ class OpenSshSecurityKeySigner {
     final pinAuth = requiresUserVerification
         ? await _pinAuthFor(
             device: device,
+            session: session,
             clientDataHash: clientDataHash,
             rpId: keyPair.application,
             presetPin: presetPin,
@@ -365,6 +424,7 @@ class OpenSshSecurityKeySigner {
 
   Future<_PinAuth> _pinAuthFor({
     required CtapDevice device,
+    required _SecurityKeySession session,
     required List<int> clientDataHash,
     required String rpId,
     String? presetPin,
@@ -373,21 +433,40 @@ class OpenSshSecurityKeySigner {
     final pinProtocol = _pinProtocolFor(ctap.info);
     final clientPin = ClientPin(ctap, pinProtocol: pinProtocol);
 
+    Future<_PinAuth> authWithPin(String pin) async {
+      final token = await clientPin.getPinToken(
+        pin,
+        permissions: [ClientPinPermission.getAssertion],
+        permissionsRpId: rpId,
+      );
+      session.recordPin(pin);
+      onStatus?.call('Security key PIN accepted.');
+      final auth = await pinProtocol.authenticate(token, clientDataHash);
+      return _PinAuth(authParam: auth, protocolVersion: pinProtocol.version);
+    }
+
     if (presetPin != null) {
       try {
-        final token = await clientPin.getPinToken(
-          presetPin,
-          permissions: [ClientPinPermission.getAssertion],
-          permissionsRpId: rpId,
-        );
-        onStatus?.call('Security key PIN accepted.');
-        final auth = await pinProtocol.authenticate(token, clientDataHash);
-        return _PinAuth(authParam: auth, protocolVersion: pinProtocol.version);
+        return await authWithPin(presetPin);
       } on CtapError catch (error) {
         if (error.status == CtapStatusCode.ctap2ErrPinInvalid) {
+          session.clearPin();
           throw _PinRejected(error, await _pinRetries(clientPin));
         }
         rethrow;
+      }
+    }
+
+    final cachedPin = session.cachedPin;
+    if (cachedPin != null) {
+      try {
+        return await authWithPin(cachedPin);
+      } on CtapError catch (error) {
+        if (error.status != CtapStatusCode.ctap2ErrPinInvalid) {
+          rethrow;
+        }
+        session.clearPin();
+        onStatus?.call('Enter the PIN for this security key.');
       }
     }
 
@@ -405,14 +484,7 @@ class OpenSshSecurityKeySigner {
       }
 
       try {
-        final token = await clientPin.getPinToken(
-          pin,
-          permissions: [ClientPinPermission.getAssertion],
-          permissionsRpId: rpId,
-        );
-        onStatus?.call('Security key PIN accepted.');
-        final auth = await pinProtocol.authenticate(token, clientDataHash);
-        return _PinAuth(authParam: auth, protocolVersion: pinProtocol.version);
+        return await authWithPin(pin);
       } on CtapError catch (error) {
         if (error.status == CtapStatusCode.ctap2ErrPinInvalid && attempt < 2) {
           onStatus?.call('Security key PIN was incorrect.');
@@ -514,10 +586,33 @@ class _SecurityKeyEntry {
 /// since swapped in, and agent-forwarded signatures may arrive much later.
 class _SecurityKeySession {
   static const _presenceTtl = Duration(seconds: 20);
+  static const _pinTtl = Duration(minutes: 2);
 
   final entries = <_SecurityKeyEntry>[];
   final _presence = <String, bool>{};
   DateTime? _recordedAt;
+  String? _pin;
+  DateTime? _pinRecordedAt;
+
+  String? get cachedPin {
+    final recordedAt = _pinRecordedAt;
+    if (_pin == null ||
+        recordedAt == null ||
+        DateTime.now().difference(recordedAt) >= _pinTtl) {
+      return null;
+    }
+    return _pin;
+  }
+
+  void recordPin(String pin) {
+    _pin = pin;
+    _pinRecordedAt = DateTime.now();
+  }
+
+  void clearPin() {
+    _pin = null;
+    _pinRecordedAt = null;
+  }
 
   bool get _fresh =>
       _recordedAt != null &&

@@ -739,12 +739,8 @@ void main() {
       final device = FakeCtapDevice(
         signature: List<int>.generate(64, (index) => index),
         authData: authData,
-        respond: (command) =>
-            allowedCredentialIdOf(command).first == 0xAA
-            ? CtapResponse(
-                CtapStatusCode.ctap2ErrNoCredentials.value,
-                const [],
-              )
+        respond: (command) => allowedCredentialIdOf(command).first == 0xAA
+            ? CtapResponse(CtapStatusCode.ctap2ErrNoCredentials.value, const [])
             : null,
       );
       var opens = 0;
@@ -853,20 +849,203 @@ void main() {
               ),
       );
       final signer = OpenSshSecurityKeySigner(openDevice: () async => device);
-      final keyPair = signer.attach([
-        OpenSSHSecurityKeyEd25519KeyPair(
-          publicKey: Uint8List.fromList(List<int>.filled(32, 3)),
-          application: 'ssh:',
-          flags: 0x01,
-          keyHandle: Uint8List.fromList([0xAA]),
-          reserved: '',
-        ),
-      ], labels: ['solo']).single;
+      final keyPair = signer
+          .attach(
+            [
+              OpenSSHSecurityKeyEd25519KeyPair(
+                publicKey: Uint8List.fromList(List<int>.filled(32, 3)),
+                application: 'ssh:',
+                flags: 0x01,
+                keyHandle: Uint8List.fromList([0xAA]),
+                reserved: '',
+              ),
+            ],
+            labels: ['solo'],
+          )
+          .single;
 
       await expectLater(
         Future.sync(() => keyPair.signAsync(Uint8List.fromList([1]))),
         throwsA(isA<SSHSecurityKeyNotPresentError>()),
       );
+    });
+
+    test('switches to the presented key before asking for a PIN', () async {
+      final device = FakeCtapDevice(
+        signature: List<int>.generate(64, (index) => index),
+        authData: [...List<int>.filled(32, 0), 0x05, 0x00, 0x00, 0x00, 0x09],
+        respond: (command) =>
+            isGetAssertion(command) &&
+                allowedCredentialIdOf(command).first == 0xAA
+            ? CtapResponse(CtapStatusCode.ctap2ErrNoCredentials.value, const [])
+            : null,
+      );
+      var pinPrompts = 0;
+      final messages = <String>[];
+      final signer = OpenSshSecurityKeySigner(
+        openDevice: () async => device,
+        onStatus: messages.add,
+        onPinRequest: ({int? retriesRemaining}) async {
+          pinPrompts++;
+          return '123456';
+        },
+      );
+      final missingKey = OpenSSHSecurityKeyEd25519KeyPair(
+        publicKey: Uint8List.fromList(List<int>.filled(32, 3)),
+        application: 'ssh:',
+        flags: 0x05,
+        keyHandle: Uint8List.fromList([0xAA]),
+        reserved: '',
+      );
+      final presentKey = OpenSSHSecurityKeyEd25519KeyPair(
+        publicKey: Uint8List.fromList(List<int>.filled(32, 4)),
+        application: 'ssh:',
+        flags: 0x05,
+        keyHandle: Uint8List.fromList([0xBB]),
+        reserved: '',
+      );
+      final attached = signer.attach(
+        [missingKey, presentKey],
+        labels: ['work', 'backup'],
+      );
+
+      Object? error;
+      try {
+        await attached.first.signAsync(Uint8List.fromList([1, 2, 3]));
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error, isA<SSHSecurityKeyNotPresentError>());
+      expect(
+        (error as SSHSecurityKeyNotPresentError).preferredPublicKey,
+        presentKey.toPublicKey().encode(),
+      );
+      expect(pinPrompts, 0);
+      expect(
+        messages,
+        contains('This security key holds "backup". Switching to it...'),
+      );
+
+      final signature = await attached.last.signAsync(
+        Uint8List.fromList([1, 2, 3]),
+      );
+      expect(signature, isA<SSHSecurityKeyEd25519Signature>());
+      expect(pinPrompts, 1);
+      final finalAssertion = device.commands
+          .where(
+            (command) => isGetAssertion(command) && !isSilentProbe(command),
+          )
+          .last;
+      expect(assertionPinAuthOf(finalAssertion), isNotNull);
+    });
+
+    test(
+      'reuses the PIN when switching between verify-required keys',
+      () async {
+        final device = FakeCtapDevice(
+          signature: List<int>.generate(64, (index) => index),
+          authData: [...List<int>.filled(32, 0), 0x05, 0x00, 0x00, 0x00, 0x09],
+          respond: (command) {
+            if (!isGetAssertion(command)) {
+              return null;
+            }
+            if (isSilentProbe(command) && assertionPinAuthOf(command) == null) {
+              return CtapResponse(
+                CtapStatusCode.ctap2ErrNoCredentials.value,
+                const [],
+              );
+            }
+            if (allowedCredentialIdOf(command).first == 0xAA) {
+              return CtapResponse(
+                CtapStatusCode.ctap2ErrNoCredentials.value,
+                const [],
+              );
+            }
+            return null;
+          },
+        );
+        var pinPrompts = 0;
+        final signer = OpenSshSecurityKeySigner(
+          openDevice: () async => device,
+          onPinRequest: ({int? retriesRemaining}) async {
+            pinPrompts++;
+            return '123456';
+          },
+        );
+        final missingKey = OpenSSHSecurityKeyEd25519KeyPair(
+          publicKey: Uint8List.fromList(List<int>.filled(32, 3)),
+          application: 'ssh:',
+          flags: 0x05,
+          keyHandle: Uint8List.fromList([0xAA]),
+          reserved: '',
+        );
+        final presentKey = OpenSSHSecurityKeyEd25519KeyPair(
+          publicKey: Uint8List.fromList(List<int>.filled(32, 4)),
+          application: 'ssh:',
+          flags: 0x05,
+          keyHandle: Uint8List.fromList([0xBB]),
+          reserved: '',
+        );
+        final attached = signer.attach(
+          [missingKey, presentKey],
+          labels: ['work', 'backup'],
+        );
+
+        Object? error;
+        try {
+          await attached.first.signAsync(Uint8List.fromList([1, 2, 3]));
+        } catch (caught) {
+          error = caught;
+        }
+
+        expect(error, isA<SSHSecurityKeyNotPresentError>());
+        expect(
+          (error as SSHSecurityKeyNotPresentError).preferredPublicKey,
+          presentKey.toPublicKey().encode(),
+        );
+        expect(pinPrompts, 1);
+
+        final signature = await attached.last.signAsync(
+          Uint8List.fromList([1, 2, 3]),
+        );
+        expect(signature, isA<SSHSecurityKeyEd25519Signature>());
+        expect(pinPrompts, 1);
+        expect(device.pinTokenGrants, 2);
+      },
+    );
+
+    test('re-prompts when the cached PIN is rejected', () async {
+      final device = FakeCtapDevice(
+        signature: List<int>.generate(64, (index) => index),
+        authData: [...List<int>.filled(32, 0), 0x05, 0x00, 0x00, 0x00, 0x09],
+      );
+      final promptedRetries = <int?>[];
+      final signer = OpenSshSecurityKeySigner(
+        openDevice: () async => device,
+        onPinRequest: ({int? retriesRemaining}) async {
+          promptedRetries.add(retriesRemaining);
+          return '123456';
+        },
+      );
+      final keyPair = signer.attach([
+        OpenSSHSecurityKeyEd25519KeyPair(
+          publicKey: Uint8List.fromList(List<int>.filled(32, 3)),
+          application: 'ssh:',
+          flags: 0x05,
+          keyHandle: Uint8List.fromList([0xAA]),
+          reserved: '',
+        ),
+      ]).single;
+
+      await keyPair.signAsync(Uint8List.fromList([1, 2, 3]));
+      expect(promptedRetries, hasLength(1));
+
+      device.rejectPinChecks = 1;
+      final signature = await keyPair.signAsync(Uint8List.fromList([4, 5]));
+      expect(signature, isA<SSHSecurityKeyEd25519Signature>());
+      expect(promptedRetries, hasLength(2));
+      expect(promptedRetries.last, 8);
     });
   });
 
