@@ -8,6 +8,7 @@ import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/terminal/data/openssh_security_key_signer.dart';
 import 'package:conduit/features/terminal/data/secure_host_key_verifier.dart';
 import 'package:conduit/features/terminal/data/ssh_client_factory.dart';
+import 'package:conduit/features/terminal/data/ssh_error_formatter.dart';
 import 'package:conduit/features/terminal/domain/host_key_prompt.dart';
 import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
 import 'package:conduit/features/terminal/domain/security_key_interaction.dart';
@@ -22,6 +23,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:fido2/fido2_client.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/test_doubles.dart';
@@ -1046,6 +1048,202 @@ void main() {
       expect(signature, isA<SSHSecurityKeyEd25519Signature>());
       expect(promptedRetries, hasLength(2));
       expect(promptedRetries.last, 8);
+    });
+
+    test('key selection prompts fall back to null without a handler', () async {
+      expect(
+        await SecurityKeyInteraction.instance.requestKeySelection(['a', 'b']),
+        isNull,
+      );
+
+      Future<int?> handler(SecurityKeySelectionRequest request) async {
+        expect(request.labels, ['a', 'b']);
+        return 1;
+      }
+
+      SecurityKeyInteraction.instance.registerSelectionPrompt(handler);
+      addTearDown(
+        () => SecurityKeyInteraction.instance.unregisterSelectionPrompt(
+          handler,
+        ),
+      );
+
+      final selection = await SecurityKeyInteraction.instance
+          .requestKeySelection(['a', 'b']);
+      expect(selection?.index, 1);
+    });
+
+    test('asks which key to use and signs only with the selection', () async {
+      final device = FakeCtapDevice(
+        signature: List<int>.generate(64, (index) => index),
+        authData: [...List<int>.filled(32, 0), 0x01, 0x00, 0x00, 0x00, 0x09],
+      );
+      var opens = 0;
+      var selectorCalls = 0;
+      final signer = OpenSshSecurityKeySigner(
+        openDevice: () async {
+          opens++;
+          return device;
+        },
+        onKeySelect: (labels) async {
+          selectorCalls++;
+          expect(labels, ['work', 'backup']);
+          return const SecurityKeySelection(1);
+        },
+      );
+      final workKey = OpenSSHSecurityKeyEd25519KeyPair(
+        publicKey: Uint8List.fromList(List<int>.filled(32, 3)),
+        application: 'ssh:',
+        flags: 0x01,
+        keyHandle: Uint8List.fromList([0xAA]),
+        reserved: '',
+      );
+      final backupKey = OpenSSHSecurityKeyEd25519KeyPair(
+        publicKey: Uint8List.fromList(List<int>.filled(32, 4)),
+        application: 'ssh:',
+        flags: 0x01,
+        keyHandle: Uint8List.fromList([0xBB]),
+        reserved: '',
+      );
+      final attached = signer.attach(
+        [workKey, backupKey],
+        labels: ['work', 'backup'],
+      );
+
+      Object? error;
+      try {
+        await attached.first.signAsync(Uint8List.fromList([1, 2, 3]));
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error, isA<SSHSecurityKeyNotPresentError>());
+      expect(
+        (error as SSHSecurityKeyNotPresentError).preferredPublicKey,
+        backupKey.toPublicKey().encode(),
+      );
+      expect(opens, 0);
+      expect(selectorCalls, 1);
+
+      final signature = await attached.last.signAsync(
+        Uint8List.fromList([1, 2, 3]),
+      );
+      expect(signature, isA<SSHSecurityKeyEd25519Signature>());
+      expect(opens, 1);
+      expect(selectorCalls, 1);
+      for (final command in device.commands.where(isGetAssertion)) {
+        expect(allowedCredentialIdOf(command), [0xBB]);
+      }
+    });
+
+    test('cancelling the key picker stops authentication', () async {
+      var opens = 0;
+      final messages = <String>[];
+      final signer = OpenSshSecurityKeySigner(
+        openDevice: () async {
+          opens++;
+          throw StateError('device should not be opened');
+        },
+        onStatus: messages.add,
+        onKeySelect: (labels) async => const SecurityKeySelection(null),
+      );
+      final attached = signer.attach(
+        [
+          OpenSSHSecurityKeyEd25519KeyPair(
+            publicKey: Uint8List.fromList(List<int>.filled(32, 3)),
+            application: 'ssh:',
+            flags: 0x01,
+            keyHandle: Uint8List.fromList([0xAA]),
+            reserved: '',
+          ),
+          OpenSSHSecurityKeyEd25519KeyPair(
+            publicKey: Uint8List.fromList(List<int>.filled(32, 4)),
+            application: 'ssh:',
+            flags: 0x01,
+            keyHandle: Uint8List.fromList([0xBB]),
+            reserved: '',
+          ),
+        ],
+        labels: ['work', 'backup'],
+      );
+
+      await expectLater(
+        Future.sync(() => attached.first.signAsync(Uint8List.fromList([1]))),
+        throwsA(isA<StateError>()),
+      );
+      expect(opens, 0);
+      expect(messages, contains('Security key selection was cancelled.'));
+    });
+
+    test('retries when the presented key is not the selected one', () async {
+      final device = FakeCtapDevice(
+        signature: const [],
+        authData: const [],
+        respond: (command) => isGetAssertion(command)
+            ? CtapResponse(CtapStatusCode.ctap2ErrNoCredentials.value, const [])
+            : null,
+      );
+      var opens = 0;
+      final messages = <String>[];
+      final signer = OpenSshSecurityKeySigner(
+        openDevice: () async {
+          opens++;
+          return device;
+        },
+        onStatus: messages.add,
+        onKeySelect: (labels) async => const SecurityKeySelection(1),
+      );
+      final attached = signer.attach(
+        [
+          OpenSSHSecurityKeyEd25519KeyPair(
+            publicKey: Uint8List.fromList(List<int>.filled(32, 3)),
+            application: 'ssh:',
+            flags: 0x01,
+            keyHandle: Uint8List.fromList([0xAA]),
+            reserved: '',
+          ),
+          OpenSSHSecurityKeyEd25519KeyPair(
+            publicKey: Uint8List.fromList(List<int>.filled(32, 4)),
+            application: 'ssh:',
+            flags: 0x01,
+            keyHandle: Uint8List.fromList([0xBB]),
+            reserved: '',
+          ),
+        ],
+        labels: ['work', 'backup'],
+      );
+
+      await expectLater(
+        Future.sync(() => attached.last.signAsync(Uint8List.fromList([1]))),
+        throwsA(isA<SSHSecurityKeyNotPresentError>()),
+      );
+      expect(opens, 3);
+      expect(
+        messages,
+        contains(
+          'That security key does not hold "backup". Present "backup" '
+          'instead.',
+        ),
+      );
+      expect(
+        messages,
+        contains('The presented security key does not hold "backup".'),
+      );
+    });
+
+    test('describes cancellation and timeout NFC codes', () {
+      expect(
+        describeSshConnectionError(
+          PlatformException(code: '409', message: 'SessionCanceled'),
+        ),
+        'Security key authentication was cancelled.',
+      );
+      expect(
+        describeSshConnectionError(
+          PlatformException(code: '408', message: 'SessionTimeOut'),
+        ),
+        'The NFC prompt timed out before a security key was read.',
+      );
     });
   });
 

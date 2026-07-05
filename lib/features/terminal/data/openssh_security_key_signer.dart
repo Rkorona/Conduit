@@ -6,6 +6,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:fido2/fido2_client.dart';
 import 'package:flutter/services.dart';
 
+import '../domain/security_key_interaction.dart';
 import 'fido_nfc_ctap_device.dart';
 import 'fido_usb_ctap_device.dart';
 import 'ssh_error_formatter.dart';
@@ -15,6 +16,8 @@ typedef CtapDeviceCloser = Future<void> Function(CtapDevice device, bool ok);
 typedef SecurityKeyStatusHandler = void Function(String message);
 typedef SecurityKeyPinRequester =
     Future<String?> Function({int? retriesRemaining});
+typedef SecurityKeySelector =
+    Future<SecurityKeySelection?> Function(List<String> labels);
 
 class OpenSshSecurityKeySigner {
   const OpenSshSecurityKeySigner({
@@ -22,12 +25,14 @@ class OpenSshSecurityKeySigner {
     this.closeDevice,
     this.onStatus,
     this.onPinRequest,
+    this.onKeySelect,
   });
 
   final CtapDeviceOpener openDevice;
   final CtapDeviceCloser? closeDevice;
   final SecurityKeyStatusHandler? onStatus;
   final SecurityKeyPinRequester? onPinRequest;
+  final SecurityKeySelector? onKeySelect;
 
   List<SSHKeyPair> attach(List<SSHKeyPair> keyPairs, {List<String>? labels}) {
     assert(labels == null || labels.length == keyPairs.length);
@@ -115,12 +120,21 @@ class OpenSshSecurityKeySigner {
     _SecurityKeySession session,
     Uint8List data,
   ) async {
+    final selected = await _selectedEntry(session);
+    if (selected != null && !identical(selected, entry)) {
+      throw SSHSecurityKeyNotPresentError(
+        '"${entry.label}" was not the selected security key.',
+        preferredPublicKey: selected.keyPair.toPublicKey().encode(),
+      );
+    }
+
     if (session.isKnownAbsent(entry)) {
       throw _mismatchError(entry, session, announce: false);
     }
 
     final keyPair = entry.keyPair;
     final clientDataHash = crypto.sha256.convert(data).bytes;
+    final selectionActive = selected != null;
 
     var collectPinUpFront =
         Platform.isIOS && _requiresUserVerification(keyPair.flags);
@@ -128,8 +142,10 @@ class OpenSshSecurityKeySigner {
     var presetPinFromCache = false;
     int? pinRetriesRemaining;
     var pinAttempts = 0;
+    var wrongKeyAttempts = 0;
     var nfcRetried = false;
     const maxPinAttempts = 3;
+    const maxWrongKeyAttempts = 3;
 
     while (true) {
       if (collectPinUpFront) {
@@ -145,8 +161,15 @@ class OpenSshSecurityKeySigner {
       var ok = false;
       try {
         if (!entry.requiresUserVerification) {
-          await _checkPresence(device, entry, session, clientDataHash);
-        } else if (presetPin == null &&
+          await _checkPresence(
+            device,
+            entry,
+            session,
+            clientDataHash,
+            selectionActive: selectionActive,
+          );
+        } else if (!selectionActive &&
+            presetPin == null &&
             session.cachedPin == null &&
             !session.hasFreshResult(entry) &&
             session.entries.length > 1) {
@@ -179,6 +202,9 @@ class OpenSshSecurityKeySigner {
         }
         if (response.status == CtapStatusCode.ctap2ErrNoCredentials.value) {
           session.record(entry, present: false);
+          if (selectionActive) {
+            throw const _WrongKeyPresented();
+          }
           await _probeSiblings(
             device,
             entry,
@@ -219,6 +245,21 @@ class OpenSshSecurityKeySigner {
               : 'Security key PIN was incorrect. Try again.',
         );
         continue;
+      } on _WrongKeyPresented {
+        wrongKeyAttempts++;
+        if (wrongKeyAttempts >= maxWrongKeyAttempts) {
+          onStatus?.call(
+            'The presented security key does not hold "${entry.label}".',
+          );
+          throw SSHSecurityKeyNotPresentError(
+            '"${entry.label}" is not on the presented security key.',
+          );
+        }
+        onStatus?.call(
+          'That security key does not hold "${entry.label}". Present '
+          '"${entry.label}" instead.',
+        );
+        continue;
       } catch (error) {
         if (!nfcRetried && _shouldRetryNfc(device, error)) {
           nfcRetried = true;
@@ -235,6 +276,35 @@ class OpenSshSecurityKeySigner {
     }
   }
 
+  Future<_SecurityKeyEntry?> _selectedEntry(_SecurityKeySession session) async {
+    if (session.entries.length < 2) {
+      return null;
+    }
+    final existing = session.selectedEntry;
+    if (existing != null) {
+      return existing;
+    }
+    final selector = onKeySelect;
+    if (selector == null) {
+      return null;
+    }
+    final selection = await selector([
+      for (final entry in session.entries) entry.label,
+    ]);
+    if (selection == null) {
+      return null;
+    }
+    final index = selection.index;
+    if (index == null || index < 0 || index >= session.entries.length) {
+      onStatus?.call('Security key selection was cancelled.');
+      throw StateError('Security key selection was cancelled.');
+    }
+    final entry = session.entries[index];
+    session.selectedEntry = entry;
+    onStatus?.call('Using security key "${entry.label}".');
+    return entry;
+  }
+
   String _waitingMessage(_SecurityKeySession session) {
     return session.entries.length > 1
         ? 'Waiting for hardware key over USB or NFC. Any of your '
@@ -246,8 +316,9 @@ class OpenSshSecurityKeySigner {
     CtapDevice device,
     _SecurityKeyEntry entry,
     _SecurityKeySession session,
-    List<int> clientDataHash,
-  ) async {
+    List<int> clientDataHash, {
+    required bool selectionActive,
+  }) async {
     final presence = await _probeCredential(
       device,
       entry.keyPair,
@@ -259,6 +330,9 @@ class OpenSshSecurityKeySigner {
     }
     if (presence == _CredentialPresence.absent) {
       session.record(entry, present: false);
+      if (selectionActive) {
+        throw const _WrongKeyPresented();
+      }
       await _probeSiblings(device, entry, session, clientDataHash);
       throw _mismatchError(entry, session);
     }
@@ -589,6 +663,7 @@ class _SecurityKeySession {
   static const _pinTtl = Duration(minutes: 2);
 
   final entries = <_SecurityKeyEntry>[];
+  _SecurityKeyEntry? selectedEntry;
   final _presence = <String, bool>{};
   DateTime? _recordedAt;
   String? _pin;
@@ -667,6 +742,10 @@ class _PinRejected implements Exception {
 
   final CtapError error;
   final int? retriesRemaining;
+}
+
+class _WrongKeyPresented implements Exception {
+  const _WrongKeyPresented();
 }
 
 class _DerReader {
