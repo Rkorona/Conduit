@@ -6,6 +6,7 @@ import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/core/theme/theme_controller.dart';
 import 'package:conduit/features/terminal/domain/security_key_interaction.dart';
+import 'package:conduit/features/terminal/presentation/security_key_picker_dialog.dart';
 import 'package:conduit/features/terminal/presentation/security_key_pin_dialog.dart';
 import 'package:conduit/features/terminal/presentation/terminal_keyboard_bar.dart';
 import 'package:conduit/features/terminal/presentation/terminal_session_controller.dart';
@@ -49,6 +50,9 @@ class _TerminalPageState extends State<TerminalPage> {
   void initState() {
     super.initState();
     SecurityKeyInteraction.instance.registerPinPrompt(_promptSecurityKeyPin);
+    SecurityKeyInteraction.instance.registerSelectionPrompt(
+      _promptSecurityKeySelection,
+    );
     widget.workspace.addListener(_handleWorkspaceChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusedSession = widget.workspace.activeSession;
@@ -60,6 +64,9 @@ class _TerminalPageState extends State<TerminalPage> {
   void dispose() {
     _setSystemUiFullscreen(false);
     SecurityKeyInteraction.instance.unregisterPinPrompt(_promptSecurityKeyPin);
+    SecurityKeyInteraction.instance.unregisterSelectionPrompt(
+      _promptSecurityKeySelection,
+    );
     widget.workspace.removeListener(_handleWorkspaceChanged);
     _focusNode.dispose();
     super.dispose();
@@ -70,6 +77,15 @@ class _TerminalPageState extends State<TerminalPage> {
       return Future<String?>.value();
     }
     return showSecurityKeyPinDialog(context, request);
+  }
+
+  Future<int?> _promptSecurityKeySelection(
+    SecurityKeySelectionRequest request,
+  ) {
+    if (!mounted) {
+      return Future<int?>.value();
+    }
+    return showSecurityKeyPickerDialog(context, request);
   }
 
   void _handleWorkspaceChanged() {
