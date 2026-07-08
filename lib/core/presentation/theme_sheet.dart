@@ -4,6 +4,8 @@ import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/theme/app_theme.dart';
 import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/core/theme/theme_controller.dart';
+import 'package:conduit/features/backup/data/app_backup_service.dart';
+import 'package:conduit/features/backup/presentation/backup_sheet.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,21 +13,23 @@ import 'package:flutter/services.dart';
 Future<void> showThemeSheet({
   required BuildContext context,
   required ThemeController controller,
+  AppBackupService? backupService,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (context) => AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppTheme.systemUiOverlayStyle(Theme.of(context).brightness),
-      child: _ThemeSheet(controller: controller),
+      child: _ThemeSheet(controller: controller, backupService: backupService),
     ),
   );
 }
 
 class _ThemeSheet extends StatelessWidget {
-  const _ThemeSheet({required this.controller});
+  const _ThemeSheet({required this.controller, required this.backupService});
 
   final ThemeController controller;
+  final AppBackupService? backupService;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +76,12 @@ class _ThemeSheet extends StatelessWidget {
                     const ConduitSectionLabel('Home'),
                     const SizedBox(height: 10),
                     _HomeAppearanceControls(controller: controller),
+                  ],
+                  if (backupService != null) ...[
+                    const SizedBox(height: 22),
+                    const ConduitSectionLabel('Backup'),
+                    const SizedBox(height: 10),
+                    _BackupControls(backupService: backupService!),
                   ],
                   const SizedBox(height: 22),
                   const ConduitSectionLabel('Palette'),
@@ -133,6 +143,39 @@ class _HomeAppearanceControls extends StatelessWidget {
         ),
         value: controller.showLocalShell,
         onChanged: controller.setShowLocalShell,
+      ),
+    );
+  }
+}
+
+class _BackupControls extends StatelessWidget {
+  const _BackupControls({required this.backupService});
+
+  final AppBackupService backupService;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Material(
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: const Icon(Icons.backup_rounded),
+        title: const Text('Backup and restore'),
+        subtitle: Text(
+          'Export settings and machines or import a saved backup.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () =>
+            showBackupSheet(context: context, backupService: backupService),
       ),
     );
   }

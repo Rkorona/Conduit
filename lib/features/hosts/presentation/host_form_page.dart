@@ -45,6 +45,7 @@ class _HostFormPageState extends State<HostFormPage> {
   final _tagController = TextEditingController();
   final _timeoutController = TextEditingController(text: '12');
   final _moshLocaleController = TextEditingController(text: 'C.UTF-8');
+  final _moshPortsController = TextEditingController();
   final _tmuxSessionNameController = TextEditingController(
     text: defaultTmuxSessionName,
   );
@@ -102,6 +103,7 @@ class _HostFormPageState extends State<HostFormPage> {
       _authMethod = host.authMethod;
       _useMosh = host.useMosh;
       _moshLocaleController.text = host.moshLocale;
+      _moshPortsController.text = host.moshPorts;
       _predictiveEchoEnabled = host.predictiveEchoEnabled;
       _externalAuthOfferKey = host.externalAuthOfferKey;
       _forwardAgent = host.forwardAgent;
@@ -186,6 +188,7 @@ class _HostFormPageState extends State<HostFormPage> {
     _tagFocusNode.dispose();
     _timeoutController.dispose();
     _moshLocaleController.dispose();
+    _moshPortsController.dispose();
     _tmuxSessionNameController.dispose();
     _tmuxStartDirectoryController.dispose();
     super.dispose();
@@ -279,6 +282,7 @@ class _HostFormPageState extends State<HostFormPage> {
               tagFocusNode: _tagFocusNode,
               timeoutController: _timeoutController,
               moshLocaleController: _moshLocaleController,
+              moshPortsController: _moshPortsController,
               tmuxSessionNameController: _tmuxSessionNameController,
               tmuxStartDirectoryController: _tmuxStartDirectoryController,
               useMosh: _useMosh,
@@ -286,6 +290,7 @@ class _HostFormPageState extends State<HostFormPage> {
               startTmuxOnConnect: _startTmuxOnConnect,
               tmuxPrefixKey: _tmuxPrefixKey,
               timeoutValidator: _validateTimeout,
+              moshPortsValidator: _validateMoshPorts,
               onAddTag: _addTag,
               onRemoveTag: _removeTag,
               onUseMoshChanged: (value) => setState(() {
@@ -601,6 +606,7 @@ class _HostFormPageState extends State<HostFormPage> {
               decoration: const InputDecoration(
                 labelText: 'Label',
                 helperText: 'Shown as the key comment.',
+                helperMaxLines: 2,
               ),
               textInputAction: TextInputAction.next,
             ),
@@ -686,6 +692,7 @@ class _HostFormPageState extends State<HostFormPage> {
       moshLocale: _moshLocaleController.text.trim().isEmpty
           ? 'C.UTF-8'
           : _moshLocaleController.text.trim(),
+      moshPorts: _useMosh ? _moshPortsController.text.trim() : '',
       predictiveEchoEnabled: _predictiveEchoEnabled,
       startTmuxOnConnect: _startTmuxOnConnect,
       tmuxPrefixKey: _tmuxPrefixKey,
@@ -733,6 +740,15 @@ class _HostFormPageState extends State<HostFormPage> {
   String? _validateTimeout(String? value) {
     final timeout = int.tryParse(value ?? '');
     if (timeout == null || timeout < 3 || timeout > 120) return '3-120';
+    return null;
+  }
+
+  String? _validateMoshPorts(String? value) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    if (MoshPortRange.tryParse(trimmed) == null) {
+      return 'Use a port or low:high range within 1-65535.';
+    }
     return null;
   }
 }

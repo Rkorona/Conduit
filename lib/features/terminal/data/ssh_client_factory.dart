@@ -5,6 +5,7 @@ import 'package:conduit/core/app_failure.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/terminal/data/fido_hardware_key_ctap_device.dart';
 import 'package:conduit/features/terminal/data/openssh_security_key_signer.dart';
+import 'package:conduit/features/terminal/data/tcp_ssh_socket.dart';
 import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
 import 'package:conduit/features/terminal/domain/security_key_interaction.dart';
 import 'package:dartssh2/dartssh2.dart';
@@ -38,7 +39,7 @@ class SshClientFactory {
   Future<SSHClient> connect(SavedHost host) async {
     SSHSocket? socket;
     try {
-      socket = await SSHSocket.connect(
+      socket = await TcpSshSocket.connect(
         host.host.trim(),
         host.port,
         timeout: Duration(seconds: host.connectionTimeoutSeconds),

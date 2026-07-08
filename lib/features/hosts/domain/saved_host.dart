@@ -86,6 +86,33 @@ List<HardwareKeyEntry> _parseHardwareKeys(Map<String, Object?> json) {
   return const [];
 }
 
+class MoshPortRange {
+  const MoshPortRange(this.first, this.last);
+
+  final int first;
+  final int last;
+
+  static final RegExp _pattern = RegExp(r'^(\d{1,5})(?::(\d{1,5}))?$');
+
+  static MoshPortRange? tryParse(String value) {
+    final match = _pattern.firstMatch(value.trim());
+    if (match == null) {
+      return null;
+    }
+    final first = int.parse(match.group(1)!);
+    final last = match.group(2) == null ? first : int.parse(match.group(2)!);
+    if (first < 1 || last > 65535 || last < first) {
+      return null;
+    }
+    return MoshPortRange(first, last);
+  }
+}
+
+String _parseMoshPorts(Map<String, Object?> json) {
+  final raw = (json['moshPorts'] as String?)?.trim() ?? '';
+  return MoshPortRange.tryParse(raw) == null ? '' : raw;
+}
+
 extension TmuxPrefixKeyDetails on TmuxPrefixKey {
   String get label => switch (this) {
     TmuxPrefixKey.controlB => 'Ctrl-B',
@@ -111,6 +138,7 @@ class SavedHost {
     this.connectionTimeoutSeconds = 12,
     this.useMosh = false,
     this.moshLocale = 'C.UTF-8',
+    this.moshPorts = '',
     this.predictiveEchoEnabled = false,
     this.startTmuxOnConnect = false,
     this.tmuxPrefixKey = defaultTmuxPrefixKey,
@@ -148,6 +176,7 @@ class SavedHost {
   final int connectionTimeoutSeconds;
   final bool useMosh;
   final String moshLocale;
+  final String moshPorts;
   final bool predictiveEchoEnabled;
   final bool startTmuxOnConnect;
   final TmuxPrefixKey tmuxPrefixKey;
@@ -218,6 +247,7 @@ class SavedHost {
     int? connectionTimeoutSeconds,
     bool? useMosh,
     String? moshLocale,
+    String? moshPorts,
     bool? predictiveEchoEnabled,
     bool? startTmuxOnConnect,
     TmuxPrefixKey? tmuxPrefixKey,
@@ -245,6 +275,7 @@ class SavedHost {
           connectionTimeoutSeconds ?? this.connectionTimeoutSeconds,
       useMosh: useMosh ?? this.useMosh,
       moshLocale: moshLocale ?? this.moshLocale,
+      moshPorts: moshPorts ?? this.moshPorts,
       predictiveEchoEnabled:
           predictiveEchoEnabled ?? this.predictiveEchoEnabled,
       startTmuxOnConnect: startTmuxOnConnect ?? this.startTmuxOnConnect,
@@ -283,6 +314,7 @@ class SavedHost {
       'connectionTimeoutSeconds': connectionTimeoutSeconds,
       'useMosh': useMosh,
       'moshLocale': moshLocale,
+      'moshPorts': moshPorts,
       'predictiveEchoEnabled': predictiveEchoEnabled,
       'startTmuxOnConnect': startTmuxOnConnect,
       'tmuxPrefixKey': tmuxPrefixKey.name,
@@ -325,6 +357,7 @@ class SavedHost {
       moshLocale: (json['moshLocale'] as String?)?.trim().isNotEmpty == true
           ? (json['moshLocale'] as String).trim()
           : 'C.UTF-8',
+      moshPorts: _parseMoshPorts(json),
       predictiveEchoEnabled: json['predictiveEchoEnabled'] as bool? ?? false,
       startTmuxOnConnect: _parseStartTmuxOnConnect(json),
       tmuxPrefixKey: TmuxPrefixKey.values.firstWhere(

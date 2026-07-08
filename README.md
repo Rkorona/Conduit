@@ -34,7 +34,9 @@ like any other terminal tab.
 There's an SFTP browser for moving files around, host-key trust you manage
 yourself, an optional device-auth app lock, and a stack of built-in terminal
 themes (Catppuccin, Tokyo Night, Gruvbox, Nord, etc.). E-ink device support is
-coming!
+coming! You can also export and import local backups of app settings, saved
+machines, and trusted host keys, either without secrets or encrypted with a
+backup password.
 
 Mosh runs on [dart_mosh](https://github.com/gwitko/dart_mosh), a clean-room
 Dart implementation of the protocol, and the terminal is
@@ -60,6 +62,9 @@ Dart implementation of the protocol, and the terminal is
   so a remote host can use your key to reach further hosts; forwarded hardware
   keys still require a touch for every onward signature.
 - Trusted host key management with explicit fingerprint review.
+- Import and export backups for app settings, saved machines, ordering, and
+  trusted host keys, with options to omit secrets or encrypt credentials with a
+  password.
 - Customizable on-screen key row with modifiers, arrows, function keys, key
   repeat, latching modifiers, and your own text snippets and control-key combos.
 - Optional device-auth app lock for protecting saved machines and credentials.

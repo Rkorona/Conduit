@@ -113,6 +113,31 @@ void main() {
     });
   });
 
+  group('MoshPortRange', () {
+    test('parses a single port', () {
+      final range = MoshPortRange.tryParse('60001');
+      expect(range?.first, 60001);
+      expect(range?.last, 60001);
+    });
+
+    test('parses a range', () {
+      final range = MoshPortRange.tryParse(' 60000:61000 ');
+      expect(range?.first, 60000);
+      expect(range?.last, 61000);
+    });
+
+    test('rejects malformed and out-of-range values', () {
+      expect(MoshPortRange.tryParse(''), isNull);
+      expect(MoshPortRange.tryParse('abc'), isNull);
+      expect(MoshPortRange.tryParse('0'), isNull);
+      expect(MoshPortRange.tryParse('65536'), isNull);
+      expect(MoshPortRange.tryParse('61000:60000'), isNull);
+      expect(MoshPortRange.tryParse('60000:'), isNull);
+      expect(MoshPortRange.tryParse(':60000'), isNull);
+      expect(MoshPortRange.tryParse('60000:61000:62000'), isNull);
+    });
+  });
+
   group('SavedHost round-trip', () {
     test('toJson then fromJson preserves all fields', () {
       final original = SavedHost(
@@ -128,6 +153,7 @@ void main() {
         connectionTimeoutSeconds: 30,
         useMosh: true,
         moshLocale: 'en_US.UTF-8',
+        moshPorts: '60000:61000',
         externalAuthOfferKey: false,
         startTmuxOnConnect: true,
         tmuxPrefixKey: TmuxPrefixKey.controlA,
@@ -153,6 +179,7 @@ void main() {
       );
       expect(decoded.useMosh, original.useMosh);
       expect(decoded.moshLocale, original.moshLocale);
+      expect(decoded.moshPorts, original.moshPorts);
       expect(decoded.externalAuthOfferKey, original.externalAuthOfferKey);
       expect(decoded.predictiveEchoEnabled, original.predictiveEchoEnabled);
       expect(decoded.startTmuxOnConnect, original.startTmuxOnConnect);
@@ -160,6 +187,21 @@ void main() {
       expect(decoded.tmuxSessionName, original.tmuxSessionName);
       expect(decoded.tmuxStartDirectory, original.tmuxStartDirectory);
       expect(decoded.lastConnectedAt, original.lastConnectedAt);
+    });
+
+    test('invalid persisted mosh ports fall back to the default', () {
+      final decoded = SavedHost.fromJson(const {
+        'id': 'id',
+        'name': 'Host',
+        'host': 'example.com',
+        'port': 22,
+        'username': 'root',
+        'authMethod': 'password',
+        'password': 'secret',
+        'moshPorts': '70000:80000',
+      });
+
+      expect(decoded.moshPorts, isEmpty);
     });
 
     test('older saved hosts default to no tmux start with Ctrl-B', () {

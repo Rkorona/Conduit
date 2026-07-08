@@ -263,6 +263,7 @@ class _AddHardwareKeySheetState extends State<_AddHardwareKeySheet> {
               labelText: 'OpenSSH hardware key stub',
               helperText:
                   'Import or paste the id_ed25519_sk or id_ecdsa_sk file.',
+              helperMaxLines: 2,
               alignLabelWithHint: true,
               prefixIcon: Padding(
                 padding: EdgeInsets.only(top: 12),
@@ -291,6 +292,7 @@ class _AddHardwareKeySheetState extends State<_AddHardwareKeySheet> {
               decoration: InputDecoration(
                 labelText: 'Stub passphrase',
                 helperText: 'This stub file is encrypted.',
+                helperMaxLines: 2,
                 prefixIcon: const Icon(Icons.shield_outlined),
                 suffixIcon: IconButton(
                   tooltip: _showPassphrase ? 'Hide' : 'Show',
