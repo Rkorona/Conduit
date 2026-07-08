@@ -401,6 +401,9 @@ class NoopVerifier implements HostKeyVerifier {
   Future<List<HostKeyRecord>> loadTrustedKeys() async => const [];
 
   @override
+  Future<void> saveTrustedKeys(List<HostKeyRecord> records) async {}
+
+  @override
   Future<void> removeTrustedKey(String host, int port) async {}
 
   @override
