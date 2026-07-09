@@ -5,6 +5,7 @@ import 'package:conduit/core/app_failure.dart';
 import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
+import 'package:conduit/features/snippets/domain/terminal_snippet.dart';
 import 'package:conduit/features/terminal/data/openssh_security_key_signer.dart';
 import 'package:conduit/features/terminal/data/secure_host_key_verifier.dart';
 import 'package:conduit/features/terminal/data/ssh_client_factory.dart';
@@ -74,6 +75,69 @@ void main() {
 
       expect(controller.status, TerminalConnectionStatus.disconnected);
       expect(session.closeCount, 1);
+
+      controller.dispose();
+    });
+
+    test('sends Ctrl-D before closing a mosh tab', () async {
+      final session = TrackableTerminalSession(completeAfterSends: 1);
+      final controller = TerminalSessionController(
+        host: buildHost('mosh').copyWith(useMosh: true),
+        repository: ImmediateTerminalRepository(session),
+      );
+
+      await controller.connect();
+      await controller.disconnect();
+
+      expect(session.sent, [
+        [0x04],
+      ]);
+      expect(session.closeCount, 1);
+
+      controller.dispose();
+    });
+
+    test('detaches tmux and exits before closing a mosh tab', () async {
+      final session = TrackableTerminalSession(completeAfterSends: 2);
+      final controller = TerminalSessionController(
+        host: buildHost('mosh-tmux').copyWith(
+          useMosh: true,
+          startTmuxOnConnect: true,
+          tmuxPrefixKey: TmuxPrefixKey.controlA,
+        ),
+        repository: ImmediateTerminalRepository(session),
+      );
+
+      await controller.connect();
+      session.sent.clear();
+      await controller.disconnect();
+
+      expect(session.sent.map(String.fromCharCodes), ['\x01d', 'exit\r']);
+      expect(session.closeCount, 1);
+
+      controller.dispose();
+    });
+
+    test('runs the selected host snippet after connect', () async {
+      final session = TrackableTerminalSession();
+      final controller = TerminalSessionController(
+        host: buildHost('connect-snippet').copyWith(
+          snippets: const [
+            TerminalSnippet(
+              id: 'snippet:hello',
+              label: 'Hello',
+              text: 'echo hello',
+            ),
+          ],
+          connectSnippetId: 'snippet:hello',
+        ),
+        repository: ImmediateTerminalRepository(session),
+      );
+
+      await controller.connect();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(session.sent.map(String.fromCharCodes), ['echo hello\r']);
 
       controller.dispose();
     });
@@ -267,9 +331,16 @@ void main() {
               focusNode: focusNode,
               palette: AppPalette.catppuccin,
               brightness: Brightness.dark,
-              items: const [
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.arrowDown),
+              rows: const [
+                TerminalKeyboardRow(
+                  items: [
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.arrowDown,
+                    ),
+                  ],
+                ),
               ],
+              globalSnippets: const [],
               fullscreen: false,
               onToggleFullscreen: () {},
               onEnterTmuxScrollMode: () {},
@@ -322,15 +393,34 @@ void main() {
               focusNode: focusNode,
               palette: AppPalette.catppuccin,
               brightness: Brightness.dark,
-              items: const [
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.control),
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.controlC),
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.controlD),
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.tmuxPrefix),
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.tmuxMenu),
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.pageDown),
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.arrowRight),
+              rows: const [
+                TerminalKeyboardRow(
+                  items: [
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.control,
+                    ),
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.controlC,
+                    ),
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.controlD,
+                    ),
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.tmuxPrefix,
+                    ),
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.tmuxMenu,
+                    ),
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.pageDown,
+                    ),
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.arrowRight,
+                    ),
+                  ],
+                ),
               ],
+              globalSnippets: const [],
               fullscreen: false,
               onToggleFullscreen: () {},
               onEnterTmuxScrollMode: () {},
@@ -379,10 +469,19 @@ void main() {
               focusNode: focusNode,
               palette: AppPalette.catppuccin,
               brightness: Brightness.dark,
-              items: const [
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.control),
-                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.compose),
+              rows: const [
+                TerminalKeyboardRow(
+                  items: [
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.control,
+                    ),
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.compose,
+                    ),
+                  ],
+                ),
               ],
+              globalSnippets: const [],
               fullscreen: false,
               onToggleFullscreen: () {},
               onToggleCompose: () {},
@@ -425,21 +524,26 @@ void main() {
               focusNode: focusNode,
               palette: AppPalette.catppuccin,
               brightness: Brightness.dark,
-              items: const [
-                TerminalKeyboardItem(
-                  id: 'custom:text',
-                  kind: TerminalKeyboardItemKind.customText,
-                  label: 'gs',
-                  text: 'git status',
-                  submit: true,
-                ),
-                TerminalKeyboardItem(
-                  id: 'custom:ctrl',
-                  kind: TerminalKeyboardItemKind.customControl,
-                  label: 'C-a',
-                  controlKey: 'A',
+              rows: const [
+                TerminalKeyboardRow(
+                  items: [
+                    TerminalKeyboardItem(
+                      id: 'custom:text',
+                      kind: TerminalKeyboardItemKind.customText,
+                      label: 'gs',
+                      text: 'git status',
+                      submit: true,
+                    ),
+                    TerminalKeyboardItem(
+                      id: 'custom:ctrl',
+                      kind: TerminalKeyboardItemKind.customControl,
+                      label: 'C-a',
+                      controlKey: 'A',
+                    ),
+                  ],
                 ),
               ],
+              globalSnippets: const [],
               fullscreen: false,
               onToggleFullscreen: () {},
               onEnterTmuxScrollMode: () {},
@@ -458,6 +562,81 @@ void main() {
       expect(controller.sentControlKeys, [TerminalKey.keyA]);
     });
 
+    testWidgets('snippets key sends host, global, and password entries', (
+      tester,
+    ) async {
+      final controller = _RecordingTerminalSessionController(
+        host: buildHost('snippets').copyWith(
+          password: 'secret-password',
+          snippets: const [
+            TerminalSnippet(
+              id: 'host-snippet',
+              label: 'Host deploy',
+              text: 'deploy host',
+            ),
+          ],
+        ),
+      );
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TerminalKeyboardBar(
+              controller: controller,
+              focusNode: focusNode,
+              palette: AppPalette.catppuccin,
+              brightness: Brightness.dark,
+              rows: const [
+                TerminalKeyboardRow(
+                  items: [
+                    TerminalKeyboardItem.builtIn(
+                      TerminalKeyboardAction.snippets,
+                    ),
+                  ],
+                ),
+              ],
+              globalSnippets: const [
+                TerminalSnippet(
+                  id: 'global-snippet',
+                  label: 'Global ls',
+                  text: 'ls -la',
+                  submit: false,
+                ),
+              ],
+              fullscreen: false,
+              onToggleFullscreen: () {},
+              onEnterTmuxScrollMode: () {},
+              onExitTmuxScrollMode: () {},
+              tmuxPrefixKey: TmuxPrefixKey.controlB,
+              tmuxScrollMode: false,
+            ),
+          ),
+        ),
+      );
+
+      await _openSnippetsMenu(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Host deploy'));
+      expect(controller.sentText, ['deploy host\r']);
+
+      await _openSnippetsMenu(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Global ls'));
+      expect(controller.sentText, ['deploy host\r', 'ls -la']);
+
+      await _openSnippetsMenu(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Password'));
+      expect(controller.sentText, [
+        'deploy host\r',
+        'ls -la',
+        'secret-password',
+      ]);
+    });
+
     testWidgets('tmux scroll key enters scrollback mode', (tester) async {
       final controller = _RecordingTerminalSessionController();
       final focusNode = FocusNode();
@@ -473,11 +652,16 @@ void main() {
             focusNode: focusNode,
             palette: AppPalette.catppuccin,
             brightness: Brightness.dark,
-            items: const [
-              TerminalKeyboardItem.builtIn(
-                TerminalKeyboardAction.tmuxScrollback,
+            rows: const [
+              TerminalKeyboardRow(
+                items: [
+                  TerminalKeyboardItem.builtIn(
+                    TerminalKeyboardAction.tmuxScrollback,
+                  ),
+                ],
               ),
             ],
+            globalSnippets: const [],
             fullscreen: false,
             onToggleFullscreen: () {},
             onEnterTmuxScrollMode: () => enteredScrollMode = true,
@@ -1063,9 +1247,8 @@ void main() {
 
       SecurityKeyInteraction.instance.registerSelectionPrompt(handler);
       addTearDown(
-        () => SecurityKeyInteraction.instance.unregisterSelectionPrompt(
-          handler,
-        ),
+        () =>
+            SecurityKeyInteraction.instance.unregisterSelectionPrompt(handler),
       );
 
       final selection = await SecurityKeyInteraction.instance
@@ -1806,9 +1989,9 @@ void main() {
 }
 
 class _RecordingTerminalSessionController extends TerminalSessionController {
-  _RecordingTerminalSessionController()
+  _RecordingTerminalSessionController({SavedHost? host})
     : super(
-        host: buildHost('repeat'),
+        host: host ?? buildHost('repeat'),
         repository: NoNetworkTerminalRepository(),
       );
 
@@ -1843,4 +2026,17 @@ class _RecordingInputHandler extends TerminalInputHandler {
     events.add(event);
     return 'ok';
   }
+}
+
+Finder _snippetsMenuButton() {
+  return find.byWidgetPredicate(
+    (widget) => widget is PopupMenuButton && widget.tooltip == 'Snippets',
+  );
+}
+
+Future<void> _openSnippetsMenu(WidgetTester tester) async {
+  final dynamic state = tester.state(_snippetsMenuButton());
+  // ignore: avoid_dynamic_calls
+  state.showButtonMenu();
+  await tester.pumpAndSettle();
 }

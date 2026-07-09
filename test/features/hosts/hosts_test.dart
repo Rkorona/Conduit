@@ -6,6 +6,7 @@ import 'package:conduit/features/hosts/domain/saved_hosts_repository.dart';
 import 'package:conduit/features/hosts/domain/ssh_key.dart';
 import 'package:conduit/features/hosts/presentation/host_form_page.dart';
 import 'package:conduit/features/hosts/presentation/hosts_controller.dart';
+import 'package:conduit/features/snippets/domain/terminal_snippet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -159,6 +160,15 @@ void main() {
         tmuxPrefixKey: TmuxPrefixKey.controlA,
         tmuxSessionName: 'work',
         tmuxStartDirectory: '~/projects',
+        snippets: const [
+          TerminalSnippet(
+            id: 'snippet:deploy',
+            label: 'Deploy',
+            text: 'deploy production',
+            hidden: true,
+          ),
+        ],
+        connectSnippetId: 'snippet:deploy',
         lastConnectedAt: DateTime.parse('2025-01-02T03:04:05Z'),
       );
 
@@ -186,6 +196,8 @@ void main() {
       expect(decoded.tmuxPrefixKey, original.tmuxPrefixKey);
       expect(decoded.tmuxSessionName, original.tmuxSessionName);
       expect(decoded.tmuxStartDirectory, original.tmuxStartDirectory);
+      expect(decoded.snippets, original.snippets);
+      expect(decoded.connectSnippetId, original.connectSnippetId);
       expect(decoded.lastConnectedAt, original.lastConnectedAt);
     });
 
@@ -616,6 +628,8 @@ void main() {
           ((find.byType(Scrollable).evaluate().first as StatefulElement).state
                   as ScrollableState)
               .position;
+      listPosition.jumpTo(0);
+      await tester.pump();
       for (var i = 0; i < 40 && finder.evaluate().isEmpty; i++) {
         listPosition.jumpTo(
           (listPosition.pixels + 200).clamp(0.0, listPosition.maxScrollExtent),
@@ -625,6 +639,23 @@ void main() {
       await tester.ensureVisible(finder);
       await tester.pumpAndSettle();
       await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> scrollToFinder(WidgetTester tester, Finder finder) async {
+      final listPosition =
+          ((find.byType(Scrollable).evaluate().first as StatefulElement).state
+                  as ScrollableState)
+              .position;
+      listPosition.jumpTo(0);
+      await tester.pump();
+      for (var i = 0; i < 40 && finder.evaluate().isEmpty; i++) {
+        listPosition.jumpTo(
+          (listPosition.pixels + 200).clamp(0.0, listPosition.maxScrollExtent),
+        );
+        await tester.pump();
+      }
+      await tester.ensureVisible(finder);
       await tester.pumpAndSettle();
     }
 
@@ -664,6 +695,7 @@ void main() {
 
       await scrollToAndTap(tester, find.text('Add machine'));
 
+      await scrollToFinder(tester, find.text('Add at least one hardware key.'));
       expect(find.text('Add at least one hardware key.'), findsOneWidget);
     });
 
@@ -705,10 +737,7 @@ void main() {
 
       expect(find.text('Ed25519 SK'), findsOneWidget);
 
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Label'),
-        'backup',
-      );
+      await tester.enterText(find.widgetWithText(TextField, 'Label'), 'backup');
       await tester.ensureVisible(find.text('Add key'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add key'));
@@ -738,9 +767,7 @@ void main() {
       );
     });
 
-    testWidgets('adds a key typed into the sheet input field', (
-      tester,
-    ) async {
+    testWidgets('adds a key typed into the sheet input field', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: HostFormPage()));
 
       await tester.tap(find.text('Hardware key').first);
@@ -763,9 +790,7 @@ void main() {
       expect(find.text('Hardware keys (1)'), findsOneWidget);
     });
 
-    testWidgets('shows a legacy single-stub host as one entry', (
-      tester,
-    ) async {
+    testWidgets('shows a legacy single-stub host as one entry', (tester) async {
       final host = SavedHost(
         id: 'id',
         name: 'Legacy',
