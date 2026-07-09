@@ -230,7 +230,11 @@ class FakeTerminalSession implements SshTerminalSession {
 }
 
 class TrackableTerminalSession implements SshTerminalSession {
+  TrackableTerminalSession({this.completeAfterSends});
+
+  final int? completeAfterSends;
   final Completer<void> _done = Completer<void>();
+  final List<List<int>> sent = <List<int>>[];
   int closeCount = 0;
 
   @override
@@ -254,7 +258,14 @@ class TrackableTerminalSession implements SshTerminalSession {
   void resize(int columns, int rows, int pixelWidth, int pixelHeight) {}
 
   @override
-  Future<void> send(List<int> data) async {}
+  Future<void> send(List<int> data) async {
+    sent.add(List<int>.of(data));
+    if (completeAfterSends != null &&
+        sent.length >= completeAfterSends! &&
+        !_done.isCompleted) {
+      _done.complete();
+    }
+  }
 }
 
 class ImmediateTerminalRepository implements SshTerminalRepository {

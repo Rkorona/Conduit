@@ -38,12 +38,10 @@ android {
     productFlavors {
         create("play") {
             dimension = "distribution"
-            applicationId = "com.gwitko.conduit"
             buildConfigField("boolean", "FULL_STORAGE_ACCESS", "false")
         }
         create("full") {
             dimension = "distribution"
-            applicationId = "com.gwitko.conduit.full"
             versionNameSuffix = "-full"
             buildConfigField("boolean", "FULL_STORAGE_ACCESS", "true")
         }

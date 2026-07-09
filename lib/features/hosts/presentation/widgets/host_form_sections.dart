@@ -6,6 +6,8 @@ import 'package:conduit/features/hosts/presentation/widgets/host_form_chrome.dar
 import 'package:conduit/features/hosts/presentation/widgets/key_source_actions.dart';
 import 'package:conduit/features/hosts/presentation/widgets/ssh_key_summary.dart';
 import 'package:conduit/features/hosts/presentation/widgets/tag_editor.dart';
+import 'package:conduit/features/snippets/domain/terminal_snippet.dart';
+import 'package:conduit/features/snippets/presentation/snippet_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -301,6 +303,8 @@ class HostAdvancedSection extends StatelessWidget {
     required this.predictiveEchoEnabled,
     required this.startTmuxOnConnect,
     required this.tmuxPrefixKey,
+    required this.snippets,
+    required this.connectSnippetId,
     required this.timeoutValidator,
     required this.moshPortsValidator,
     required this.onAddTag,
@@ -309,6 +313,8 @@ class HostAdvancedSection extends StatelessWidget {
     required this.onPredictiveEchoChanged,
     required this.onStartTmuxOnConnectChanged,
     required this.onTmuxPrefixKeyChanged,
+    required this.onSnippetsChanged,
+    required this.onConnectSnippetChanged,
     super.key,
   });
 
@@ -324,6 +330,8 @@ class HostAdvancedSection extends StatelessWidget {
   final bool predictiveEchoEnabled;
   final bool startTmuxOnConnect;
   final TmuxPrefixKey tmuxPrefixKey;
+  final List<TerminalSnippet> snippets;
+  final String connectSnippetId;
   final FormFieldValidator<String> timeoutValidator;
   final FormFieldValidator<String> moshPortsValidator;
   final ValueChanged<String> onAddTag;
@@ -332,6 +340,8 @@ class HostAdvancedSection extends StatelessWidget {
   final ValueChanged<bool> onPredictiveEchoChanged;
   final ValueChanged<bool> onStartTmuxOnConnectChanged;
   final ValueChanged<TmuxPrefixKey> onTmuxPrefixKeyChanged;
+  final ValueChanged<List<TerminalSnippet>> onSnippetsChanged;
+  final ValueChanged<String> onConnectSnippetChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -483,6 +493,17 @@ class HostAdvancedSection extends StatelessWidget {
               onTmuxPrefixKeyChanged(value);
             }
           },
+        ),
+        const SizedBox(height: 18),
+        SnippetListEditor(
+          title: 'Host snippets',
+          caption:
+              'Shown in the Snip key-row menu for this machine. Hidden '
+              'snippets are useful for passwords or other secrets.',
+          snippets: snippets,
+          onChanged: onSnippetsChanged,
+          connectSnippetId: connectSnippetId,
+          onConnectSnippetChanged: onConnectSnippetChanged,
         ),
       ],
     );

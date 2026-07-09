@@ -1,3 +1,5 @@
+import 'package:conduit/features/snippets/domain/terminal_snippet.dart';
+
 enum SshAuthMethod { password, privateKey, hardwareKey, external }
 
 enum TmuxPrefixKey { controlB, controlA }
@@ -144,6 +146,8 @@ class SavedHost {
     this.tmuxPrefixKey = defaultTmuxPrefixKey,
     this.tmuxSessionName = defaultTmuxSessionName,
     this.tmuxStartDirectory = '',
+    this.snippets = const [],
+    this.connectSnippetId = '',
     this.lastConnectedAt,
     this.isLocal = false,
   });
@@ -182,6 +186,8 @@ class SavedHost {
   final TmuxPrefixKey tmuxPrefixKey;
   final String tmuxSessionName;
   final String tmuxStartDirectory;
+  final List<TerminalSnippet> snippets;
+  final String connectSnippetId;
   final DateTime? lastConnectedAt;
   final bool isLocal;
 
@@ -253,6 +259,8 @@ class SavedHost {
     TmuxPrefixKey? tmuxPrefixKey,
     String? tmuxSessionName,
     String? tmuxStartDirectory,
+    List<TerminalSnippet>? snippets,
+    String? connectSnippetId,
     DateTime? lastConnectedAt,
     bool clearLastConnectedAt = false,
     bool? isLocal,
@@ -282,6 +290,8 @@ class SavedHost {
       tmuxPrefixKey: tmuxPrefixKey ?? this.tmuxPrefixKey,
       tmuxSessionName: tmuxSessionName ?? this.tmuxSessionName,
       tmuxStartDirectory: tmuxStartDirectory ?? this.tmuxStartDirectory,
+      snippets: snippets ?? this.snippets,
+      connectSnippetId: connectSnippetId ?? this.connectSnippetId,
       lastConnectedAt: clearLastConnectedAt
           ? null
           : lastConnectedAt ?? this.lastConnectedAt,
@@ -320,6 +330,8 @@ class SavedHost {
       'tmuxPrefixKey': tmuxPrefixKey.name,
       'tmuxSessionName': tmuxSessionName,
       'tmuxStartDirectory': tmuxStartDirectory,
+      'snippets': [for (final snippet in snippets) snippet.toJson()],
+      'connectSnippetId': connectSnippetId,
       'lastConnectedAt': lastConnectedAt?.toIso8601String(),
       'isLocal': isLocal,
     };
@@ -369,6 +381,11 @@ class SavedHost {
           ? (json['tmuxSessionName'] as String).trim()
           : defaultTmuxSessionName,
       tmuxStartDirectory: (json['tmuxStartDirectory'] as String?)?.trim() ?? '',
+      snippets: (json['snippets'] as List? ?? const [])
+          .map(TerminalSnippet.fromJson)
+          .whereType<TerminalSnippet>()
+          .toList(growable: false),
+      connectSnippetId: json['connectSnippetId'] as String? ?? '',
       lastConnectedAt: lastConnectedAtRaw == null
           ? null
           : DateTime.tryParse(lastConnectedAtRaw),

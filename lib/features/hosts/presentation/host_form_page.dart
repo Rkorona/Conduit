@@ -12,6 +12,7 @@ import 'package:conduit/features/hosts/presentation/public_key_sheet.dart';
 import 'package:conduit/features/hosts/presentation/widgets/hardware_key_list.dart';
 import 'package:conduit/features/hosts/presentation/widgets/host_form_chrome.dart';
 import 'package:conduit/features/hosts/presentation/widgets/host_form_sections.dart';
+import 'package:conduit/features/snippets/domain/terminal_snippet.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -62,6 +63,8 @@ class _HostFormPageState extends State<HostFormPage> {
   TmuxPrefixKey _tmuxPrefixKey = defaultTmuxPrefixKey;
   List<String> _tags = const [];
   List<HardwareKeyEntry> _hardwareKeys = const [];
+  List<TerminalSnippet> _snippets = const [];
+  String _connectSnippetId = '';
   final _hardwareKeyInspections = <String, SshKeyInspection>{};
   String? _hardwareKeysError;
   SshKeyInspection? _keyInspection;
@@ -111,6 +114,8 @@ class _HostFormPageState extends State<HostFormPage> {
       _tmuxPrefixKey = host.tmuxPrefixKey;
       _tmuxSessionNameController.text = host.tmuxSessionName;
       _tmuxStartDirectoryController.text = host.tmuxStartDirectory;
+      _snippets = List<TerminalSnippet>.from(host.snippets);
+      _connectSnippetId = host.connectSnippetId;
     }
     _keyInspection = _cheapPreview();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -289,6 +294,8 @@ class _HostFormPageState extends State<HostFormPage> {
               predictiveEchoEnabled: _predictiveEchoEnabled,
               startTmuxOnConnect: _startTmuxOnConnect,
               tmuxPrefixKey: _tmuxPrefixKey,
+              snippets: _snippets,
+              connectSnippetId: _connectSnippetId,
               timeoutValidator: _validateTimeout,
               moshPortsValidator: _validateMoshPorts,
               onAddTag: _addTag,
@@ -305,6 +312,16 @@ class _HostFormPageState extends State<HostFormPage> {
                   setState(() => _startTmuxOnConnect = value),
               onTmuxPrefixKeyChanged: (value) =>
                   setState(() => _tmuxPrefixKey = value),
+              onSnippetsChanged: (snippets) => setState(() {
+                _snippets = snippets;
+                if (!_snippets.any(
+                  (snippet) => snippet.id == _connectSnippetId,
+                )) {
+                  _connectSnippetId = '';
+                }
+              }),
+              onConnectSnippetChanged: (snippetId) =>
+                  setState(() => _connectSnippetId = snippetId),
             ),
             const SizedBox(height: 22),
             SizedBox(
@@ -700,6 +717,11 @@ class _HostFormPageState extends State<HostFormPage> {
           ? defaultTmuxSessionName
           : _tmuxSessionNameController.text.trim(),
       tmuxStartDirectory: _tmuxStartDirectoryController.text.trim(),
+      snippets: List<TerminalSnippet>.unmodifiable(_snippets),
+      connectSnippetId:
+          _snippets.any((snippet) => snippet.id == _connectSnippetId)
+          ? _connectSnippetId
+          : '',
       lastConnectedAt: currentHost?.lastConnectedAt,
     );
 

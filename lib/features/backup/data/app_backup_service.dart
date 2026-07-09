@@ -9,6 +9,7 @@ import 'package:conduit/core/theme/theme_controller.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/hosts/domain/saved_hosts_repository.dart';
 import 'package:conduit/features/hosts/presentation/hosts_controller.dart';
+import 'package:conduit/features/snippets/domain/terminal_snippet.dart';
 import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
@@ -96,7 +97,7 @@ class AppBackupService {
       ],
       'hostSortMode': _hostsController.sortMode.name,
       'hostManualOrder': _hostsController.manualOrder,
-      'theme': _themeToJson(),
+      'theme': _themeToJson(includeSecrets: includeSecrets),
       'trustedHostKeys': [for (final record in trustedKeys) record.toJson()],
     };
   }
@@ -113,18 +114,32 @@ class AppBackupService {
         for (final key in host.hardwareKeys)
           HardwareKeyEntry(id: key.id, label: key.label, privateKey: ''),
       ],
+      snippets: [
+        for (final snippet in host.snippets) _snippetForBackup(snippet),
+      ],
     );
   }
 
-  Map<String, Object?> _themeToJson() {
+  TerminalSnippet _snippetForBackup(TerminalSnippet snippet) {
+    return snippet.hidden ? snippet.copyWith(text: '') : snippet;
+  }
+
+  Map<String, Object?> _themeToJson({required bool includeSecrets}) {
     return {
       'themeMode': _themeController.themeMode.name,
       'palette': _themeController.palette.name,
       'terminalFont': _themeController.terminalFont.name,
       'terminalFontSize': _themeController.terminalFontSize,
-      'terminalKeyboardItems': [
-        for (final item in _themeController.terminalKeyboardItems)
-          _keyboardItemToJson(item),
+      'terminalKeyboardRows': [
+        for (final row in _themeController.terminalKeyboardRows)
+          {
+            'height': row.height,
+            'items': [for (final item in row.items) _keyboardItemToJson(item)],
+          },
+      ],
+      'terminalSnippets': [
+        for (final snippet in _themeController.terminalSnippets)
+          (includeSecrets ? snippet : _snippetForBackup(snippet)).toJson(),
       ],
       'showLocalShell': _themeController.showLocalShell,
     };
@@ -157,10 +172,19 @@ class AppBackupService {
     if (fontSize is num) {
       await _themeController.setTerminalFontSize(fontSize.toDouble());
     }
-    final keyboardItems = _parseKeyboardItems(json['terminalKeyboardItems']);
-    if (keyboardItems.isNotEmpty) {
-      await _themeController.setTerminalKeyboardItems(keyboardItems);
+    final keyboardRows = _parseKeyboardRows(json['terminalKeyboardRows']);
+    if (keyboardRows.isNotEmpty) {
+      await _themeController.setTerminalKeyboardRows(keyboardRows);
+    } else {
+      final keyboardItems = _parseKeyboardItems(json['terminalKeyboardItems']);
+      if (keyboardItems.isNotEmpty) {
+        await _themeController.setTerminalKeyboardRows([
+          TerminalKeyboardRow(items: keyboardItems),
+        ]);
+      }
     }
+    final snippets = _parseSnippets(json['terminalSnippets']);
+    await _themeController.setTerminalSnippets(snippets);
     final showLocalShell = json['showLocalShell'];
     if (showLocalShell is bool) {
       await _themeController.setShowLocalShell(showLocalShell);
@@ -265,6 +289,30 @@ class AppBackupService {
     return raw.whereType<String>().toList(growable: false);
   }
 
+  List<TerminalKeyboardRow> _parseKeyboardRows(Object? raw) {
+    if (raw is! List) {
+      return const [];
+    }
+    final rows = <TerminalKeyboardRow>[];
+    for (final rawRow in raw.whereType<Map<Object?, Object?>>()) {
+      final row = Map<String, Object?>.from(rawRow);
+      final items = _parseKeyboardItems(row['items']);
+      if (items.isEmpty) {
+        continue;
+      }
+      final height = row['height'];
+      rows.add(
+        TerminalKeyboardRow(
+          items: items,
+          height: height is num
+              ? clampTerminalKeyboardRowHeight(height.toDouble())
+              : terminalKeyboardRowHeightDefault,
+        ),
+      );
+    }
+    return rows;
+  }
+
   List<TerminalKeyboardItem> _parseKeyboardItems(Object? raw) {
     if (raw is! List) {
       return const [];
@@ -280,6 +328,16 @@ class AppBackupService {
     const encoder = JsonEncoder.withIndent('  ');
     return Uint8List.fromList(utf8.encode('${encoder.convert(value)}\n'));
   }
+}
+
+List<TerminalSnippet> _parseSnippets(Object? raw) {
+  if (raw is! List) {
+    return const [];
+  }
+  return raw
+      .map(TerminalSnippet.fromJson)
+      .whereType<TerminalSnippet>()
+      .toList(growable: false);
 }
 
 class AppBackupCrypto {

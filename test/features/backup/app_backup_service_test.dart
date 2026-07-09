@@ -77,8 +77,12 @@ void main() {
         );
         expect(target.verifier.records, hasLength(1));
         expect(target.themeController.palette, AppPalette.catppuccin);
-        expect(target.themeController.terminalKeyboardItems, [
-          const TerminalKeyboardItem.builtIn(TerminalKeyboardAction.escape),
+        expect(target.themeController.terminalKeyboardRows, [
+          const TerminalKeyboardRow(
+            items: [
+              TerminalKeyboardItem.builtIn(TerminalKeyboardAction.escape),
+            ],
+          ),
         ]);
       },
     );
@@ -169,8 +173,12 @@ class _Fixture {
         const ThemePreferences(
           themeMode: ThemeMode.dark,
           palette: AppPalette.catppuccin,
-          terminalKeyboardItems: [
-            TerminalKeyboardItem.builtIn(TerminalKeyboardAction.escape),
+          terminalKeyboardRows: [
+            TerminalKeyboardRow(
+              items: [
+                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.escape),
+              ],
+            ),
           ],
         ),
       ),
