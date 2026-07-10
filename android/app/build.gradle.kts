@@ -1,4 +1,5 @@
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+import java.io.File
 import java.util.Properties
 
 plugins {
@@ -82,11 +83,36 @@ val abiCodes = mapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86_64" to 3)
 android.applicationVariants.configureEach {
     val variant = this
     variant.outputs.forEach { output ->
-        val abiVersionCode = abiCodes[output.filters.find { it.filterType == "ABI" }?.identifier]
+        val abi = output.filters.find { it.filterType == "ABI" }?.identifier
+        val abiVersionCode = abiCodes[abi]
+        val apkOutput = output as ApkVariantOutputImpl
         if (abiVersionCode != null) {
-            (output as ApkVariantOutputImpl).versionCodeOverride = variant.versionCode * 10 + abiVersionCode
+            apkOutput.versionCodeOverride = variant.versionCode * 10 + abiVersionCode
+        }
+        if (variant.flavorName == "full" && variant.buildType.name == "release") {
+            apkOutput.outputFileName = if (abi == null) {
+                "app-release.apk"
+            } else {
+                "app-$abi-release.apk"
+            }
         }
     }
+}
+
+val copyFullReleaseFlutterApksToLegacyNames by tasks.registering {
+    doLast {
+        val flutterApkDir = layout.buildDirectory.dir("outputs/flutter-apk").get().asFile
+        flutterApkDir
+            .listFiles { file -> file.isFile && file.name.endsWith("-full-release.apk") }
+            ?.forEach { apk ->
+                val legacyName = apk.name.replace("-full-release.apk", "-release.apk")
+                apk.copyTo(File(flutterApkDir, legacyName), overwrite = true)
+            }
+    }
+}
+
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    finalizedBy(copyFullReleaseFlutterApksToLegacyNames)
 }
 
 kotlin {
