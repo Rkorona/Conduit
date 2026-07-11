@@ -106,9 +106,16 @@ class _TerminalPageState extends State<TerminalPage> {
   }
 
   void _setSystemUiFullscreen(bool fullscreen) {
-    SystemChrome.setEnabledSystemUIMode(
-      fullscreen ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
-    );
+    if (fullscreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      // edgeToEdge keeps the status bar transparent against a dark terminal,
+      // making it invisible. Explicitly restore all overlays instead.
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
+    }
   }
 
   @override
