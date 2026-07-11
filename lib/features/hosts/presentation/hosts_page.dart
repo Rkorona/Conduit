@@ -19,6 +19,7 @@ import 'package:conduit/features/hosts/presentation/widgets/tag_filter_bar.dart'
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_page.dart';
 import 'package:conduit/features/local_shell/presentation/widgets/local_shell_card.dart';
+import 'package:conduit/features/sftp/data/local_shell_sftp_repository.dart';
 import 'package:conduit/features/sftp/domain/file_export.dart';
 import 'package:conduit/features/sftp/domain/sftp_repository.dart';
 import 'package:conduit/features/sftp/presentation/sftp_browser_page.dart';
@@ -186,6 +187,7 @@ class _HostsPageState extends State<HostsPage> {
                         active: active,
                         onOpenSession: _openLocalSession,
                         onManage: _openLocalShell,
+                        onOpenFiles: _openLocalFiles,
                       );
                     },
                   ),
@@ -496,6 +498,22 @@ class _HostsPageState extends State<HostsPage> {
         builder: (_) => SftpBrowserPage(
           host: host,
           repository: widget.sftpRepository,
+          fileExport: widget.fileExport,
+          themeController: widget.themeController,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLocalFiles() async {
+    if (!mounted) return;
+    final localHost = widget.localShellController.localHost();
+    final localRepo = LocalShellSftpRepository(widget.localShellController);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SftpBrowserPage(
+          host: localHost,
+          repository: localRepo,
           fileExport: widget.fileExport,
           themeController: widget.themeController,
         ),

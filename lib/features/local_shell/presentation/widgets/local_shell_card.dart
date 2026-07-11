@@ -2,12 +2,15 @@ import 'package:conduit/features/local_shell/domain/local_shell_state.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:flutter/material.dart';
 
+enum LocalShellAction { files, manage }
+
 class LocalShellCard extends StatelessWidget {
   const LocalShellCard({
     required this.controller,
     required this.active,
     required this.onOpenSession,
     required this.onManage,
+    required this.onOpenFiles,
     super.key,
   });
 
@@ -15,6 +18,7 @@ class LocalShellCard extends StatelessWidget {
   final bool active;
   final Future<void> Function() onOpenSession;
   final VoidCallback onManage;
+  final VoidCallback onOpenFiles;
 
   @override
   Widget build(BuildContext context) {
@@ -145,11 +149,35 @@ class LocalShellCard extends StatelessWidget {
       );
     }
     if (state.isReady) {
-      return IconButton(
-        tooltip: 'Manage',
+      return PopupMenuButton<LocalShellAction>(
+        tooltip: 'Local shell options',
+        padding: EdgeInsets.zero,
         iconSize: 18,
-        onPressed: onManage,
-        icon: Icon(Icons.tune_rounded, color: colorScheme.onSurfaceVariant),
+        icon: Icon(Icons.more_vert_rounded, color: colorScheme.onSurfaceVariant),
+        onSelected: (action) => switch (action) {
+          LocalShellAction.files => onOpenFiles(),
+          LocalShellAction.manage => onManage(),
+        },
+        itemBuilder: (context) => const [
+          PopupMenuItem(
+            value: LocalShellAction.files,
+            child: ListTile(
+              leading: Icon(Icons.folder_open_outlined),
+              title: Text('Files'),
+              contentPadding: EdgeInsets.zero,
+              minLeadingWidth: 24,
+            ),
+          ),
+          PopupMenuItem(
+            value: LocalShellAction.manage,
+            child: ListTile(
+              leading: Icon(Icons.tune_rounded),
+              title: Text('Manage'),
+              contentPadding: EdgeInsets.zero,
+              minLeadingWidth: 24,
+            ),
+          ),
+        ],
       );
     }
     return Icon(
