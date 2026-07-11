@@ -12,6 +12,7 @@ Widget wrap(LocalShellController controller, {required VoidCallback onManage}) {
         active: false,
         onOpenSession: () async {},
         onManage: onManage,
+        onOpenFiles: () {},
       ),
     ),
   );
