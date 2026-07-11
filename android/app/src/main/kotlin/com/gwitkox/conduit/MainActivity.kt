@@ -1,4 +1,4 @@
-package com.gwitko.conduit
+package com.gwitkox.conduit
 
 import android.Manifest
 import android.app.Notification
