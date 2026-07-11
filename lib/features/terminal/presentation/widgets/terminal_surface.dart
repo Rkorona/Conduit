@@ -150,7 +150,7 @@ class _TerminalSurfaceState extends State<TerminalSurface> {
                   focusNode: widget.focusNode,
                   autofocus: widget.focusNode != null,
                   deleteDetection: true,
-                  keyboardType: TextInputType.visiblePassword,
+                  keyboardType: TextInputType.text,
                   theme: widget.palette.terminalThemeFor(widget.brightness),
                   overlays: overlays,
                   textStyle: TerminalStyle(
