@@ -113,6 +113,8 @@ class _TerminalPageState extends State<TerminalPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Must be read here, before Scaffold consumes viewInsets via resizeToAvoidBottomInset.
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return ListenableBuilder(
       listenable: widget.themeController,
       builder: (context, _) {
@@ -138,8 +140,6 @@ class _TerminalPageState extends State<TerminalPage> {
               final landscape =
                   MediaQuery.orientationOf(context) == Orientation.landscape;
               final gestureNavigation = usesAndroidGestureNavigation(context);
-              final keyboardVisible =
-                  MediaQuery.viewInsetsOf(context).bottom > 0;
               final hideChrome = _fullscreen || keyboardVisible;
               return SafeArea(
                 top: !hideChrome,
