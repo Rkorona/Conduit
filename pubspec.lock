@@ -101,8 +101,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "57222273f969892c6b45b0fcfdbe65a0f54743a9"
-      resolved-ref: "57222273f969892c6b45b0fcfdbe65a0f54743a9"
+      ref: b486b894ea12b18b2ad76339ccd8c6ae3c12416f
+      resolved-ref: b486b894ea12b18b2ad76339ccd8c6ae3c12416f
       url: "https://github.com/gwitko/conduit_vt.git"
     source: git
     version: "0.1.1"

@@ -17,6 +17,7 @@ class ThemeController extends ChangeNotifier {
   List<TerminalSnippet> _terminalSnippets = const [];
   bool _showLocalShell = true;
   bool _terminalMouseInput = false;
+  TerminalEnterSequence _terminalEnterSequence = TerminalEnterSequence.cr;
 
   ThemeMode get themeMode => _themeMode;
   AppPalette get palette => _palette;
@@ -28,6 +29,7 @@ class ThemeController extends ChangeNotifier {
       List.unmodifiable(_terminalSnippets);
   bool get showLocalShell => _showLocalShell;
   bool get terminalMouseInput => _terminalMouseInput;
+  TerminalEnterSequence get terminalEnterSequence => _terminalEnterSequence;
 
   Future<void> load() async {
     final preferences = await _repository.load();
@@ -39,6 +41,7 @@ class ThemeController extends ChangeNotifier {
     _terminalSnippets = List.of(preferences.terminalSnippets);
     _showLocalShell = preferences.showLocalShell;
     _terminalMouseInput = preferences.terminalMouseInput;
+    _terminalEnterSequence = preferences.terminalEnterSequence;
     notifyListeners();
   }
 
@@ -152,6 +155,15 @@ class ThemeController extends ChangeNotifier {
     await _save();
   }
 
+  Future<void> setTerminalEnterSequence(TerminalEnterSequence sequence) async {
+    if (_terminalEnterSequence == sequence) {
+      return;
+    }
+    _terminalEnterSequence = sequence;
+    notifyListeners();
+    await _save();
+  }
+
   Future<void> _save() {
     return _repository.save(
       ThemePreferences(
@@ -163,6 +175,7 @@ class ThemeController extends ChangeNotifier {
         terminalSnippets: _terminalSnippets,
         showLocalShell: _showLocalShell,
         terminalMouseInput: _terminalMouseInput,
+        terminalEnterSequence: _terminalEnterSequence,
       ),
     );
   }

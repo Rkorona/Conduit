@@ -339,6 +339,54 @@ class _TerminalAppearanceControls extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
           ),
           clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.keyboard_return_rounded, size: 20),
+                    const SizedBox(width: 10),
+                    Text('Enter sends', style: theme.textTheme.titleSmall),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  controller.terminalEnterSequence.description,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<TerminalEnterSequence>(
+                    segments: [
+                      for (final sequence in TerminalEnterSequence.values)
+                        ButtonSegment<TerminalEnterSequence>(
+                          value: sequence,
+                          label: Text(sequence.label),
+                        ),
+                    ],
+                    selected: {controller.terminalEnterSequence},
+                    onSelectionChanged: (selection) {
+                      controller.setTerminalEnterSequence(selection.single);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Material(
+          color: colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: SwitchListTile(
             secondary: const Icon(Icons.mouse_rounded),
             title: const Text('Send mouse taps'),

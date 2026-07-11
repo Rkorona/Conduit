@@ -815,6 +815,35 @@ void main() {
         expect(session.sent.map(String.fromCharCodes), ['\r']);
       },
     );
+
+    test('normalizes enter key output to the configured sequence', () async {
+      final session = FakePredictiveTerminalSession();
+      final controller = TerminalSessionController(
+        host: buildHost('enter-sequence'),
+        repository: ImmediateTerminalRepository(session),
+        enterSequence: TerminalEnterSequence.crlf,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.connect();
+      controller.sendKey(TerminalKey.enter);
+
+      expect(session.sent.map(String.fromCharCodes), ['\r\n']);
+    });
+
+    test('normalizes raw LF enter output to the configured sequence', () async {
+      final session = FakePredictiveTerminalSession();
+      final controller = TerminalSessionController(
+        host: buildHost('enter-lf'),
+        repository: ImmediateTerminalRepository(session),
+      );
+      addTearDown(controller.dispose);
+
+      await controller.connect();
+      controller.sendText('\n');
+
+      expect(session.sent.map(String.fromCharCodes), ['\r']);
+    });
   });
 
   group('OpenSSH security key signer', () {

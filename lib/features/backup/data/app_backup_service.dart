@@ -143,6 +143,7 @@ class AppBackupService {
       ],
       'showLocalShell': _themeController.showLocalShell,
       'terminalMouseInput': _themeController.terminalMouseInput,
+      'terminalEnterSequence': _themeController.terminalEnterSequence.name,
     };
   }
 
@@ -194,6 +195,12 @@ class AppBackupService {
     if (terminalMouseInput is bool) {
       await _themeController.setTerminalMouseInput(terminalMouseInput);
     }
+    await _themeController.setTerminalEnterSequence(
+      TerminalEnterSequence.values.firstWhere(
+        (sequence) => sequence.name == json['terminalEnterSequence'],
+        orElse: () => _themeController.terminalEnterSequence,
+      ),
+    );
   }
 
   Map<String, Object?> _decodeDocument(Uint8List bytes) {

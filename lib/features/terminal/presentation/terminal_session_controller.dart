@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:conduit/core/app_failure.dart';
+import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/terminal/domain/network_connectivity.dart';
 import 'package:conduit/features/terminal/domain/predictive_echo.dart';
@@ -29,9 +30,11 @@ class TerminalSessionController extends ChangeNotifier {
     required this.repository,
     this.connectivity,
     bool predictiveEchoEnabled = false,
+    TerminalEnterSequence enterSequence = TerminalEnterSequence.cr,
   }) : keyboard = TerminalKeyboardController(defaultInputHandler),
        terminal = Terminal(maxLines: 10000) {
     _predictiveEchoEnabled = predictiveEchoEnabled;
+    _enterSequence = enterSequence;
     _configureTerminal();
   }
 
@@ -60,6 +63,7 @@ class TerminalSessionController extends ChangeNotifier {
   bool _disconnecting = false;
   bool _disposed = false;
   bool _predictiveEchoEnabled = false;
+  TerminalEnterSequence _enterSequence = TerminalEnterSequence.cr;
   int _connectionGeneration = 0;
   int? _lastIosEnterOutputMs;
 
@@ -72,6 +76,7 @@ class TerminalSessionController extends ChangeNotifier {
   String get title => host.name;
   bool get isConnected => _status == TerminalConnectionStatus.connected;
   bool get predictiveEchoEnabled => _predictiveEchoEnabled;
+  TerminalEnterSequence get enterSequence => _enterSequence;
   Listenable get terminalPaintListenable => _terminalPaintNotifier;
 
   List<TerminalCellOverlay> get overlays {
@@ -100,6 +105,14 @@ class TerminalSessionController extends ChangeNotifier {
       _predictiveEcho.reset();
     }
     _notifyTerminalPaint();
+    notifyListeners();
+  }
+
+  set enterSequence(TerminalEnterSequence sequence) {
+    if (_enterSequence == sequence) {
+      return;
+    }
+    _enterSequence = sequence;
     notifyListeners();
   }
 
@@ -297,7 +310,9 @@ class TerminalSessionController extends ChangeNotifier {
     if (snippet == null) {
       return;
     }
-    final text = snippet.submit ? '${snippet.text}\r' : snippet.text;
+    final text = snippet.submit
+        ? '${snippet.text}${_enterSequence.value}'
+        : snippet.text;
     if (text.isEmpty) {
       return;
     }
@@ -370,7 +385,7 @@ class TerminalSessionController extends ChangeNotifier {
     if (startDirectory.isNotEmpty) {
       command.write(' -c ${_shellQuote(startDirectory)}');
     }
-    command.write('\r');
+    command.write(_enterSequence.value);
     return command.toString();
   }
 
@@ -394,7 +409,8 @@ class TerminalSessionController extends ChangeNotifier {
   }
 
   void _sendTerminalOutput(String data) {
-    if (_shouldSuppressDuplicateIosEnter(data)) {
+    final normalized = _normalizeEnterOutput(data);
+    if (_shouldSuppressDuplicateIosEnter(normalized)) {
       return;
     }
 
@@ -403,7 +419,7 @@ class TerminalSessionController extends ChangeNotifier {
       return;
     }
 
-    final bytes = utf8.encode(data);
+    final bytes = utf8.encode(normalized);
     if (_predictiveEchoEnabled && session is PredictiveTerminalSession) {
       final predictiveSession = session as PredictiveTerminalSession;
       try {
@@ -411,7 +427,7 @@ class TerminalSessionController extends ChangeNotifier {
         _predictiveEcho
           ..updateSrtt(predictiveSession.smoothedRtt)
           ..recordInput(
-            data,
+            normalized,
             inputNum: inputNum,
             cursorRow: terminal.absoluteCursorRow,
             cursorColumn: terminal.cursorColumn,
@@ -446,6 +462,10 @@ class TerminalSessionController extends ChangeNotifier {
 
   bool _isEnterOutput(String data) {
     return data == '\r' || data == '\n' || data == '\r\n';
+  }
+
+  String _normalizeEnterOutput(String data) {
+    return _isEnterOutput(data) ? _enterSequence.value : data;
   }
 
   void _writeTerminalOutput(String data) {

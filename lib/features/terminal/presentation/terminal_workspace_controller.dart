@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/terminal/domain/network_connectivity.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_repository.dart';
@@ -14,6 +15,7 @@ class TerminalWorkspaceController extends ChangeNotifier {
 
   final List<TerminalSessionController> _sessions = [];
   int _activeIndex = 0;
+  TerminalEnterSequence _enterSequence = TerminalEnterSequence.cr;
 
   List<TerminalSessionController> get sessions => List.unmodifiable(_sessions);
 
@@ -36,6 +38,13 @@ class TerminalWorkspaceController extends ChangeNotifier {
 
   bool get hasLiveSessions => liveSessionCount > 0;
 
+  void setEnterSequence(TerminalEnterSequence sequence) {
+    _enterSequence = sequence;
+    for (final session in _sessions) {
+      session.enterSequence = sequence;
+    }
+  }
+
   TerminalSessionController open(SavedHost host) {
     final existingIndex = _sessions.indexWhere(
       (session) => session.host.id == host.id,
@@ -51,6 +60,7 @@ class TerminalWorkspaceController extends ChangeNotifier {
       repository: _repository,
       connectivity: _connectivity,
       predictiveEchoEnabled: host.predictiveEchoEnabled,
+      enterSequence: _enterSequence,
     );
     session.addListener(notifyListeners);
     _sessions.add(session);

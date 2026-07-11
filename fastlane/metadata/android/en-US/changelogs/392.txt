@@ -1,1 +1,3 @@
 Terminal: optional mouse tap forwarding can now be enabled from Appearance for terminal apps that use mouse tracking.
+Terminal: choose whether Enter sends CR, LF, or CRLF from Appearance.
+Terminal: fixed fish prompt underline artifacts and clear-screen spacing.
