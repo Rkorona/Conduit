@@ -80,14 +80,21 @@ class LocalShellSftpSession implements SftpSession {
 
   @override
   Future<String> resolve(String path) async {
-    // Resolve symlinks relative to the rootfs.
-    final hostResolved = await File(_hostPath(path)).resolveSymbolicLinks().catchError((_) => _hostPath(path));
-    // If the resolved path escapes the rootfsDir (e.g. absolute symlinks
-    // pointing outside), clamp it back to rootfsDir.
-    if (!hostResolved.startsWith(rootfsDir)) {
-      return path; // return as-is
+    // The local shell always runs as root, so '.' resolves to /root.
+    // For any other path, normalise and return as-is (the browser only uses
+    // resolve() for the initial home-directory lookup).
+    if (path == '.') return '/root';
+
+    // Resolve symlinks relative to the rootfs; clamp escaping paths.
+    try {
+      final hostResolved = await File(
+        _hostPath(path),
+      ).resolveSymbolicLinks();
+      if (!hostResolved.startsWith(rootfsDir)) return path;
+      return _virtualPath(hostResolved);
+    } catch (_) {
+      return path;
     }
-    return _virtualPath(hostResolved);
   }
 
   @override
