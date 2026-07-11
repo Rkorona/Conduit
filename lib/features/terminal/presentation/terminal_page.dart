@@ -138,14 +138,17 @@ class _TerminalPageState extends State<TerminalPage> {
               final landscape =
                   MediaQuery.orientationOf(context) == Orientation.landscape;
               final gestureNavigation = usesAndroidGestureNavigation(context);
+              final keyboardVisible =
+                  MediaQuery.viewInsetsOf(context).bottom > 0;
+              final hideChrome = _fullscreen || keyboardVisible;
               return SafeArea(
-                top: !_fullscreen,
+                top: !hideChrome,
                 bottom: shouldApplyBottomSafeArea(context),
-                left: !_fullscreen && (!landscape || !gestureNavigation),
-                right: !_fullscreen && (!landscape || !gestureNavigation),
+                left: !hideChrome && (!landscape || !gestureNavigation),
+                right: !hideChrome && (!landscape || !gestureNavigation),
                 child: Column(
                   children: [
-                    if (!_fullscreen) ...[
+                    if (!hideChrome) ...[
                       TerminalHeader(
                         session: activeSession,
                         palette: palette,
