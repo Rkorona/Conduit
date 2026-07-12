@@ -7,6 +7,7 @@ import 'package:conduit/core/theme/theme_controller.dart';
 import 'package:conduit/features/backup/data/app_backup_service.dart';
 import 'package:conduit/features/backup/presentation/backup_sheet.dart';
 import 'package:conduit/features/snippets/presentation/snippet_editor.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -226,23 +227,7 @@ class _TerminalAppearanceControls extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SegmentedButton<TerminalFontOption>(
-          segments: [
-            for (final font in TerminalFontOption.values)
-              ButtonSegment(
-                value: font,
-                icon: Icon(
-                  font == TerminalFontOption.atkynsonNerdFont
-                      ? Icons.extension_rounded
-                      : Icons.terminal_rounded,
-                ),
-                label: Text(font.label),
-              ),
-          ],
-          selected: {controller.terminalFont},
-          onSelectionChanged: (selection) =>
-              controller.setTerminalFont(selection.single),
-        ),
+        _FontControls(controller: controller),
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
@@ -1174,6 +1159,129 @@ class _Swatch extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(4),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Custom font picker
+// ---------------------------------------------------------------------------
+
+class _FontControls extends StatefulWidget {
+  const _FontControls({required this.controller});
+  final ThemeController controller;
+
+  @override
+  State<_FontControls> createState() => _FontControlsState();
+}
+
+class _FontControlsState extends State<_FontControls> {
+  bool _loading = false;
+
+  Future<void> _pickFont() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['ttf', 'otf'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      await widget.controller.setCustomFontFromBytes(bytes, file.name);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isCustom = controller.terminalFont == TerminalFontOption.custom;
+    final customPath = controller.customFontPath;
+    final customName = customPath?.split('/').last;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<TerminalFontOption>(
+          segments: [
+            for (final font in TerminalFontOption.values)
+              ButtonSegment(
+                value: font,
+                icon: Icon(switch (font) {
+                  TerminalFontOption.systemMonospace => Icons.terminal_rounded,
+                  TerminalFontOption.atkynsonNerdFont =>
+                    Icons.extension_rounded,
+                  TerminalFontOption.custom => Icons.font_download_rounded,
+                }),
+                label: Text(font.label),
+              ),
+          ],
+          selected: {controller.terminalFont},
+          onSelectionChanged: (selection) async {
+            final chosen = selection.single;
+            if (chosen == TerminalFontOption.custom) {
+              // If no custom font is loaded yet, open picker immediately.
+              if (customPath == null) {
+                await _pickFont();
+              } else {
+                await controller.setTerminalFont(chosen);
+              }
+            } else {
+              await controller.setTerminalFont(chosen);
+            }
+          },
+        ),
+        // Show current custom font filename + change button when active.
+        if (isCustom) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.font_download_outlined,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    customName ?? 'No font loaded',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium,
+                  ),
+                ),
+                TextButton(
+                  onPressed: _loading ? null : _pickFont,
+                  child: _loading
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colorScheme.primary,
+                          ),
+                        )
+                      : const Text('Change'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

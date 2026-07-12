@@ -1,8 +1,13 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/core/theme/theme_preferences_repository.dart';
 import 'package:conduit/features/snippets/domain/terminal_snippet.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ThemeController extends ChangeNotifier {
   ThemeController(this._repository);
@@ -16,6 +21,7 @@ class ThemeController extends ChangeNotifier {
   List<TerminalKeyboardRow> _terminalKeyboardRows = defaultTerminalKeyboardRows;
   List<TerminalSnippet> _terminalSnippets = const [];
   bool _showLocalShell = true;
+  String? _customFontPath;
 
   ThemeMode get themeMode => _themeMode;
   AppPalette get palette => _palette;
@@ -26,6 +32,7 @@ class ThemeController extends ChangeNotifier {
   List<TerminalSnippet> get terminalSnippets =>
       List.unmodifiable(_terminalSnippets);
   bool get showLocalShell => _showLocalShell;
+  String? get customFontPath => _customFontPath;
 
   Future<void> load() async {
     final preferences = await _repository.load();
@@ -36,6 +43,10 @@ class ThemeController extends ChangeNotifier {
     _terminalKeyboardRows = List.of(preferences.terminalKeyboardRows);
     _terminalSnippets = List.of(preferences.terminalSnippets);
     _showLocalShell = preferences.showLocalShell;
+    _customFontPath = preferences.customFontPath;
+    if (_customFontPath != null) {
+      await _loadCustomFont(_customFontPath!);
+    }
     notifyListeners();
   }
 
@@ -140,6 +151,30 @@ class ThemeController extends ChangeNotifier {
     await _save();
   }
 
+  /// Import a custom font from raw bytes (e.g. from file_picker).
+  /// Copies the file to app documents dir, registers it as 'CustomFont',
+  /// and switches the active font to [TerminalFontOption.custom].
+  Future<void> setCustomFontFromBytes(Uint8List bytes, String filename) async {
+    final docsDir = await getApplicationDocumentsDirectory();
+    final ext = filename.contains('.') ? filename.split('.').last : 'ttf';
+    final dest = File('${docsDir.path}/custom_terminal_font.$ext');
+    await dest.writeAsBytes(bytes);
+    await _loadCustomFont(dest.path);
+    _customFontPath = dest.path;
+    _terminalFont = TerminalFontOption.custom;
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> _loadCustomFont(String path) async {
+    final file = File(path);
+    if (!file.existsSync()) return;
+    final bytes = await file.readAsBytes();
+    final fontLoader = ui.FontLoader('CustomFont');
+    fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));
+    await fontLoader.load();
+  }
+
   Future<void> _save() {
     return _repository.save(
       ThemePreferences(
@@ -150,6 +185,7 @@ class ThemeController extends ChangeNotifier {
         terminalKeyboardRows: _terminalKeyboardRows,
         terminalSnippets: _terminalSnippets,
         showLocalShell: _showLocalShell,
+        customFontPath: _customFontPath,
       ),
     );
   }

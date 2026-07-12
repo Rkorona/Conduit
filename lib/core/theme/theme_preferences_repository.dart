@@ -15,6 +15,7 @@ class ThemePreferences {
     this.terminalKeyboardRows = defaultTerminalKeyboardRows,
     this.terminalSnippets = const [],
     this.showLocalShell = true,
+    this.customFontPath,
   });
 
   final ThemeMode themeMode;
@@ -24,6 +25,7 @@ class ThemePreferences {
   final List<TerminalKeyboardRow> terminalKeyboardRows;
   final List<TerminalSnippet> terminalSnippets;
   final bool showLocalShell;
+  final String? customFontPath;
 }
 
 class ThemePreferencesRepository {
@@ -40,6 +42,7 @@ class ThemePreferencesRepository {
       'conduit.terminal_keyboard_seen_actions.v1';
   static const _terminalSnippetsKey = 'conduit.terminal_snippets.v1';
   static const _showLocalShellKey = 'conduit.show_local_shell.v1';
+  static const _customFontPathKey = 'conduit.custom_font_path.v1';
 
   final FlutterSecureStorage _storage;
 
@@ -59,6 +62,7 @@ class ThemePreferencesRepository {
     );
     final rawTerminalSnippets = await _storage.read(key: _terminalSnippetsKey);
     final rawShowLocalShell = await _storage.read(key: _showLocalShellKey);
+    final rawCustomFontPath = await _storage.read(key: _customFontPathKey);
     final terminalFontSize = double.tryParse(rawTerminalFontSize ?? '');
     final terminalKeyboardRows = _appendUnseenBuiltIns(
       _parseTerminalKeyboardRows(
@@ -87,6 +91,7 @@ class ThemePreferencesRepository {
       terminalKeyboardRows: terminalKeyboardRows,
       terminalSnippets: _parseTerminalSnippets(rawTerminalSnippets),
       showLocalShell: rawShowLocalShell == null || rawShowLocalShell == 'true',
+      customFontPath: rawCustomFontPath,
     );
   }
 
@@ -129,6 +134,12 @@ class ThemePreferencesRepository {
       key: _showLocalShellKey,
       value: preferences.showLocalShell.toString(),
     );
+    final customFontPath = preferences.customFontPath;
+    if (customFontPath != null) {
+      await _storage.write(key: _customFontPathKey, value: customFontPath);
+    } else {
+      await _storage.delete(key: _customFontPathKey);
+    }
   }
 
   List<TerminalSnippet> _parseTerminalSnippets(String? raw) {

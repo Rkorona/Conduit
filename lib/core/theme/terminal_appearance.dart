@@ -1,4 +1,4 @@
-enum TerminalFontOption { systemMonospace, atkynsonNerdFont }
+enum TerminalFontOption { systemMonospace, atkynsonNerdFont, custom }
 
 const terminalFontSizeDefault = 13.5;
 const terminalFontSizeMin = 4.0;
@@ -20,11 +20,13 @@ extension TerminalFontOptionDetails on TerminalFontOption {
   String get label => switch (this) {
     TerminalFontOption.systemMonospace => 'System mono',
     TerminalFontOption.atkynsonNerdFont => 'Nerd Font',
+    TerminalFontOption.custom => 'Custom',
   };
 
   String get fontFamily => switch (this) {
     TerminalFontOption.systemMonospace => 'monospace',
     TerminalFontOption.atkynsonNerdFont => 'AtkynsonMonoNerdFontMono',
+    TerminalFontOption.custom => 'CustomFont',
   };
 }
 
