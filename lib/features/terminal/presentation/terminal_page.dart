@@ -37,6 +37,10 @@ class _TerminalPageState extends State<TerminalPage> {
   final _focusNode = FocusNode();
   TerminalSessionController? _focusedSession;
   bool _fullscreen = false;
+  // Tracks whether the on-screen keyboard is currently the reason the system
+  // status bar is hidden, independent of the fullscreen toggle, so the two
+  // triggers can hide/restore the status bar without stepping on each other.
+  bool _keyboardHiddenSystemUi = false;
   bool _tmuxScrollMode = false;
   bool _composeMode = false;
   // Compose recall: recently SENT lines (deduped, oldest first, capped) so a
@@ -115,6 +119,30 @@ class _TerminalPageState extends State<TerminalPage> {
         SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
+      // The status bar was just forced back on. Clear the keyboard-driven
+      // hidden flag so the keyboard-visibility sync below re-evaluates from
+      // scratch on the next build (e.g. re-hides it if the keyboard is still
+      // up when fullscreen is turned off).
+      _keyboardHiddenSystemUi = false;
+    }
+  }
+
+  // Keeps the system status bar hidden/shown in lockstep with the on-screen
+  // keyboard, independent of the fullscreen toggle above. While fullscreen is
+  // active, the toggle above already owns the system UI mode exclusively.
+  void _syncSystemUiWithKeyboard(bool keyboardVisible) {
+    if (_fullscreen) {
+      return;
+    }
+    if (keyboardVisible && !_keyboardHiddenSystemUi) {
+      _keyboardHiddenSystemUi = true;
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else if (!keyboardVisible && _keyboardHiddenSystemUi) {
+      _keyboardHiddenSystemUi = false;
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
     }
   }
 
@@ -122,6 +150,7 @@ class _TerminalPageState extends State<TerminalPage> {
   Widget build(BuildContext context) {
     // Must be read here, before Scaffold consumes viewInsets via resizeToAvoidBottomInset.
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    _syncSystemUiWithKeyboard(keyboardVisible);
     return ListenableBuilder(
       listenable: widget.themeController,
       builder: (context, _) {
