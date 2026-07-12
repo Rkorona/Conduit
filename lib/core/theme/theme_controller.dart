@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:conduit/core/theme/app_palette.dart';
+import 'package:flutter/services.dart' show FontLoader, ByteData;
 import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/core/theme/theme_preferences_repository.dart';
 import 'package:conduit/features/snippets/domain/terminal_snippet.dart';
