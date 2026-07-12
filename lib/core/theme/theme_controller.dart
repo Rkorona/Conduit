@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/theme/terminal_appearance.dart';
@@ -170,7 +169,7 @@ class ThemeController extends ChangeNotifier {
     final file = File(path);
     if (!file.existsSync()) return;
     final bytes = await file.readAsBytes();
-    final fontLoader = ui.FontLoader('CustomFont');
+    final fontLoader = FontLoader('CustomFont');
     fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));
     await fontLoader.load();
   }

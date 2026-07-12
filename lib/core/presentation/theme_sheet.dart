@@ -1179,7 +1179,7 @@ class _FontControlsState extends State<_FontControls> {
   bool _loading = false;
 
   Future<void> _pickFont() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['ttf', 'otf'],
       withData: true,
