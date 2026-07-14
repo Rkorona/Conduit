@@ -42,6 +42,7 @@ Widget wrap(
   VoidCallback? onAdd,
   Future<void> Function(LocalShellInstance)? onOpen,
   void Function(LocalShellInstance)? onManage,
+  void Function(LocalShellInstance)? onOpenFiles,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -51,6 +52,7 @@ Widget wrap(
         onAdd: onAdd ?? () {},
         onOpenInstance: onOpen ?? (_) async {},
         onManageInstance: onManage ?? (_) {},
+        onOpenFiles: onOpenFiles ?? (_) {},
       ),
     ),
   );
