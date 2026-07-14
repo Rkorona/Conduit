@@ -22,6 +22,8 @@ class ThemeController extends ChangeNotifier {
   List<TerminalSnippet> _terminalSnippets = const [];
   bool _showLocalShell = true;
   String? _customFontPath;
+  bool _terminalMouseInput = false;
+  TerminalEnterSequence _terminalEnterSequence = TerminalEnterSequence.cr;
 
   ThemeMode get themeMode => _themeMode;
   AppPalette get palette => _palette;
@@ -33,6 +35,8 @@ class ThemeController extends ChangeNotifier {
       List.unmodifiable(_terminalSnippets);
   bool get showLocalShell => _showLocalShell;
   String? get customFontPath => _customFontPath;
+  bool get terminalMouseInput => _terminalMouseInput;
+  TerminalEnterSequence get terminalEnterSequence => _terminalEnterSequence;
 
   Future<void> load() async {
     final preferences = await _repository.load();
@@ -47,6 +51,8 @@ class ThemeController extends ChangeNotifier {
     if (_customFontPath != null) {
       await _loadCustomFont(_customFontPath!);
     }
+    _terminalMouseInput = preferences.terminalMouseInput;
+    _terminalEnterSequence = preferences.terminalEnterSequence;
     notifyListeners();
   }
 
@@ -166,6 +172,15 @@ class ThemeController extends ChangeNotifier {
     await _save();
   }
 
+  Future<void> setTerminalMouseInput(bool enabled) async {
+    if (_terminalMouseInput == enabled) {
+      return;
+    }
+    _terminalMouseInput = enabled;
+    notifyListeners();
+    await _save();
+  }
+
   Future<void> _loadCustomFont(String path) async {
     final file = File(path);
     if (!file.existsSync()) return;
@@ -173,6 +188,15 @@ class ThemeController extends ChangeNotifier {
     final fontLoader = FontLoader('CustomFont');
     fontLoader.addFont(Future.value(ByteData.view(bytes.buffer)));
     await fontLoader.load();
+  }
+
+  Future<void> setTerminalEnterSequence(TerminalEnterSequence sequence) async {
+    if (_terminalEnterSequence == sequence) {
+      return;
+    }
+    _terminalEnterSequence = sequence;
+    notifyListeners();
+    await _save();
   }
 
   Future<void> _save() {
@@ -186,6 +210,8 @@ class ThemeController extends ChangeNotifier {
         terminalSnippets: _terminalSnippets,
         showLocalShell: _showLocalShell,
         customFontPath: _customFontPath,
+        terminalMouseInput: _terminalMouseInput,
+        terminalEnterSequence: _terminalEnterSequence,
       ),
     );
   }

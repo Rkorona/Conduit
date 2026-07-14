@@ -1,5 +1,7 @@
 enum TerminalFontOption { systemMonospace, atkynsonNerdFont, custom }
 
+enum TerminalEnterSequence { cr, lf, crlf }
+
 const terminalFontSizeDefault = 13.5;
 const terminalFontSizeMin = 4.0;
 const terminalFontSizeMax = 30.0;
@@ -27,6 +29,26 @@ extension TerminalFontOptionDetails on TerminalFontOption {
     TerminalFontOption.systemMonospace => 'monospace',
     TerminalFontOption.atkynsonNerdFont => 'AtkynsonMonoNerdFontMono',
     TerminalFontOption.custom => 'CustomFont',
+  };
+}
+
+extension TerminalEnterSequenceDetails on TerminalEnterSequence {
+  String get label => switch (this) {
+    TerminalEnterSequence.cr => 'CR',
+    TerminalEnterSequence.lf => 'LF',
+    TerminalEnterSequence.crlf => 'CRLF',
+  };
+
+  String get description => switch (this) {
+    TerminalEnterSequence.cr => 'Carriage return',
+    TerminalEnterSequence.lf => 'Line feed',
+    TerminalEnterSequence.crlf => 'Carriage return + line feed',
+  };
+
+  String get value => switch (this) {
+    TerminalEnterSequence.cr => '\r',
+    TerminalEnterSequence.lf => '\n',
+    TerminalEnterSequence.crlf => '\r\n',
   };
 }
 

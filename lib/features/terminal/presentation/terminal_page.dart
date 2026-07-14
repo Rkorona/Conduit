@@ -18,6 +18,7 @@ import 'package:conduit/features/terminal/presentation/widgets/terminal_surface.
 import 'package:conduit_vt/conduit_vt.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class TerminalPage extends StatefulWidget {
   const TerminalPage({
@@ -53,6 +54,7 @@ class _TerminalPageState extends State<TerminalPage> {
   @override
   void initState() {
     super.initState();
+    unawaited(WakelockPlus.enable());
     SecurityKeyInteraction.instance.registerPinPrompt(_promptSecurityKeyPin);
     SecurityKeyInteraction.instance.registerSelectionPrompt(
       _promptSecurityKeySelection,
@@ -66,6 +68,7 @@ class _TerminalPageState extends State<TerminalPage> {
 
   @override
   void dispose() {
+    unawaited(WakelockPlus.disable());
     _setSystemUiFullscreen(false);
     SecurityKeyInteraction.instance.unregisterPinPrompt(_promptSecurityKeyPin);
     SecurityKeyInteraction.instance.unregisterSelectionPrompt(
@@ -233,6 +236,8 @@ class _TerminalPageState extends State<TerminalPage> {
                                 },
                                 predictiveEchoEnabled:
                                     session.host.predictiveEchoEnabled,
+                                terminalMouseInput:
+                                    widget.themeController.terminalMouseInput,
                                 focusNode: session == activeSession
                                     ? _focusNode
                                     : null,

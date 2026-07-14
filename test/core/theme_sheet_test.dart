@@ -50,6 +50,89 @@ void main() {
     expect(controller.showLocalShell, isFalse);
   });
 
+  testWidgets('appearance sheet toggles terminal mouse input', (tester) async {
+    final controller = ThemeController(InMemoryThemePreferences());
+    await controller.load();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () {
+                    showThemeSheet(context: context, controller: controller);
+                  },
+                  child: const Text('Appearance'),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Appearance'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Send mouse taps'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Send mouse taps'), findsOneWidget);
+    expect(controller.terminalMouseInput, isFalse);
+
+    await tester.tap(find.text('Send mouse taps'));
+    await tester.pumpAndSettle();
+
+    expect(controller.terminalMouseInput, isTrue);
+  });
+
+  testWidgets('appearance sheet changes terminal enter sequence', (
+    tester,
+  ) async {
+    final controller = ThemeController(InMemoryThemePreferences());
+    await controller.load();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () {
+                    showThemeSheet(context: context, controller: controller);
+                  },
+                  child: const Text('Appearance'),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Appearance'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Enter sends'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.terminalEnterSequence, TerminalEnterSequence.cr);
+
+    await tester.tap(find.text('CRLF'));
+    await tester.pumpAndSettle();
+
+    expect(controller.terminalEnterSequence, TerminalEnterSequence.crlf);
+  });
+
   testWidgets('key row editor adds and saves a custom text key', (
     tester,
   ) async {

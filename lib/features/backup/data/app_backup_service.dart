@@ -142,6 +142,8 @@ class AppBackupService {
           (includeSecrets ? snippet : _snippetForBackup(snippet)).toJson(),
       ],
       'showLocalShell': _themeController.showLocalShell,
+      'terminalMouseInput': _themeController.terminalMouseInput,
+      'terminalEnterSequence': _themeController.terminalEnterSequence.name,
     };
   }
 
@@ -189,6 +191,16 @@ class AppBackupService {
     if (showLocalShell is bool) {
       await _themeController.setShowLocalShell(showLocalShell);
     }
+    final terminalMouseInput = json['terminalMouseInput'];
+    if (terminalMouseInput is bool) {
+      await _themeController.setTerminalMouseInput(terminalMouseInput);
+    }
+    await _themeController.setTerminalEnterSequence(
+      TerminalEnterSequence.values.firstWhere(
+        (sequence) => sequence.name == json['terminalEnterSequence'],
+        orElse: () => _themeController.terminalEnterSequence,
+      ),
+    );
   }
 
   Map<String, Object?> _decodeDocument(Uint8List bytes) {

@@ -56,7 +56,7 @@ void main() {
     ssh: DartSshTerminalRepository(hostKeyVerifier),
     mosh: MoshTerminalRepository(hostKeyVerifier),
     local: LocalTerminalRepository(
-      resolvePaths: localShellController.requirePaths,
+      resolveLaunch: localShellController.requireLaunch,
     ),
   );
   final workspaceController = TerminalWorkspaceController(
@@ -134,6 +134,14 @@ class _ConduitAppState extends State<ConduitApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.workspaceController.addListener(_syncBackgroundKeepalive);
+    widget.themeController.addListener(_syncTerminalPreferences);
+    _syncTerminalPreferences();
+  }
+
+  void _syncTerminalPreferences() {
+    widget.workspaceController.setEnterSequence(
+      widget.themeController.terminalEnterSequence,
+    );
   }
 
   @override
@@ -191,6 +199,7 @@ class _ConduitAppState extends State<ConduitApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.workspaceController.removeListener(_syncBackgroundKeepalive);
+    widget.themeController.removeListener(_syncTerminalPreferences);
     unawaited(_backgroundKeepalive.stop());
     super.dispose();
   }
