@@ -1,6 +1,12 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  exclude:
+    # Vendored third-party package (local patch override for conduit_vt via
+    # dependency_overrides, see vendor/conduit_vt/README-PATCH.md). It's not
+    # our code and wasn't written against this project's strict lint rules,
+    # so don't analyze it here.
+    - vendor/**
   language:
     strict-casts: true
     strict-inference: true
