@@ -1,4 +1,4 @@
-modules = ["vue-node-20", "bash", "nodejs-20"]
+modules = ["vue-node-20", "bash", "nodejs-20", "dart-3.10"]
 [agent]
 expertMode = true
 

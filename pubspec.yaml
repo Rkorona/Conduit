@@ -45,6 +45,16 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
 
+# Local patch for conduit_vt: its CSI parameter parser dropped ':' (colon)
+# sub-parameter separators, which corrupted extended SGR color sequences
+# (e.g. fzf's `--color=bg+:196`, ISO 8613-6 truecolor `38:2::r:g:b`) so
+# they silently failed to render. See vendor/conduit_vt/README-PATCH.md.
+# Remove this override once the fix lands upstream at
+# https://github.com/gwitko/conduit_vt.
+dependency_overrides:
+  conduit_vt:
+    path: vendor/conduit_vt
+
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
