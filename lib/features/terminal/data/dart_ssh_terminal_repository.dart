@@ -31,7 +31,7 @@ class DartSshTerminalRepository implements SshTerminalRepository {
         pty: SSHPtyConfig(
           width: columns,
           height: rows,
-          term: 'xterm-256color',
+          type: 'xterm-256color',
         ),
       );
 
