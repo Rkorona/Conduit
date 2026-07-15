@@ -28,11 +28,7 @@ class DartSshTerminalRepository implements SshTerminalRepository {
       client = await _clientFactory.connect(host);
 
       final shell = await client.shell(
-        pty: SSHPtyConfig(
-          width: columns,
-          height: rows,
-          type: 'xterm-256color',
-        ),
+        pty: SSHPtyConfig(width: columns, height: rows),
       );
 
       return DartSshTerminalSession(client: client, shell: shell);
