@@ -69,6 +69,7 @@ class ProotCommandBuilder {
     final env = <String>[
       'HOME=/root',
       'TERM=xterm-256color',
+      'COLORTERM=truecolor',
       'LANG=C.UTF-8',
       'PATH=$_path',
       'PS1=[\\u@$promptLabel \\W]\\\$ ',
